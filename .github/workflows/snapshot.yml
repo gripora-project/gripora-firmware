@@ -42,7 +42,13 @@ jobs:
     - name: Create Snapshot
       run: |
         .github/scripts/extract-release-notes.py "${{ env.GIT_VER }}" Releases.md > Notes.md
-        gh release create ${{ env.GIT_TAG }} --prerelease --notes-file Notes.md --title "Gripora Snapshot ${{ env.GIT_VER }}" obj/*.hex
+        # Re-runnable: a rerun after a later step failed finds the release already
+        # there and just replaces its files.
+        if gh release view ${{ env.GIT_TAG }} > /dev/null 2>&1; then
+          gh release upload ${{ env.GIT_TAG }} obj/*.hex --clobber
+        else
+          gh release create ${{ env.GIT_TAG }} --prerelease --notes-file Notes.md --title "Gripora Snapshot ${{ env.GIT_VER }}" obj/*.hex
+        fi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -66,5 +72,10 @@ jobs:
         git config user.name "gripora-artifacts[bot]"
         git config user.email "gripora-artifacts[bot]@users.noreply.github.com"
         git add "firmware/${{ env.GIT_TAG }}"
-        git commit -m "firmware: ${{ env.GIT_TAG }}"
-        git push origin master
+        # Nothing to commit when a rerun publishes the same files again
+        if git diff --cached --quiet; then
+          echo "firmware/${{ env.GIT_TAG }} is already published"
+        else
+          git commit -m "firmware: ${{ env.GIT_TAG }}"
+          git push origin master
+        fi
