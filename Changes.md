@@ -16,9 +16,9 @@ car drives. Entries below "Inherited from WingFlight" predate the Gripora fork.
 - New `yaw_gyro_reverse` (OFF/ON, PID config PG v4): reverses only the yaw
   gyro feedback of the steering loop, for when the gyro corrects the wrong way.
   Board orientation and the attitude estimate are unchanged. Carried as an
-  optional trailing U8 in `MSP_MIXER_CONFIG` / `MSP_SET_MIXER_CONFIG`; the
-  servo update rate before it is now read even on builds without servos. MSP
-  API version 22.17.
+  optional trailing U8 in `MSP_MIXER_CONFIG` / `MSP_SET_MIXER_CONFIG` (for the
+  next API version; clients can detect it by the reply's length). The servo
+  update rate before it is now read even on builds without servos.
 
 ## Aircraft features removed (car conversion, step 1)
 

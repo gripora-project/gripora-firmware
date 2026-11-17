@@ -1838,7 +1838,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #else
         sbufWriteU16(dst, 0);
 #endif
-        // API 22.17: yaw_gyro_reverse
+        // Next API version: yaw_gyro_reverse (clients detect it by the reply's length)
         sbufWriteU8(dst, pidConfig()->yaw_gyro_reverse);
         break;
 
@@ -3760,7 +3760,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             }
 #endif
         }
-        // API 22.17: optional yaw_gyro_reverse (0 or 1)
+        // Next API version: optional yaw_gyro_reverse (0 or 1)
         bool hasYawGyroReverse = false;
         uint8_t yawGyroReverse = 0;
         if (sbufBytesRemaining(src) >= 1) {
