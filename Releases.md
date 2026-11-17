@@ -1,3 +1,13 @@
+# 0.0.2
+
+Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites: MSP API 33.0. Gripora's protocol is now its own (WingFlight stays on 22.x), and the Gripora MSP2 messages are named MSP2_GRIPORA_*. Configurators and suites for 0.0.1 can't connect to 0.0.2, and the other way round.
+The gyro steers correctly in reverse and fades out at a standstill: the controller works out which way the car is travelling (from the ESC behaviour and, when available, motor RPM) and how fast. Set drive_esc_mode to match your ESC (AUTO picks direct reverse for DShot and brake-then-reverse for PWM), and drive_wheel_diameter with the gear ratio for the speed. drive_gyro_reverse and its gain set the gyro in reverse. Without an RPM source the gyro stays active at a standstill.
+The default channel order is the car one: CH1 steering, CH2 throttle, CH3-CH6 AUX 1-4. Updating resets the receiver settings to it.
+The gyro corrects on the bench while disarmed (for the setup wizard's direction check), and the steering I-term no longer builds up while disarmed.
+New yaw_gyro_reverse, in the Configurator's Mixer tab and setup wizard, for a gyro that corrects the wrong way.
+
+***
+
 # 0.0.1
 
 First Gripora snapshot: the WingFlight firmware turned into an RC car controller. Not ready to drive yet; for bench testing and setting up with the Gripora Configurator (cfg.gripora.org).
