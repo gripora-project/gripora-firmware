@@ -50,8 +50,6 @@
 #include "fc/rc_controls.h"
 
 #include "flight/failsafe.h"
-#include "flight/gps_rescue.h"
-#include "flight/gps_nav.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
 #include "flight/pid.h"
@@ -72,7 +70,6 @@
 #include "pg/dashboard.h"
 #include "pg/dyn_notch.h"
 #include "pg/flash.h"
-#include "pg/governor.h"
 #include "pg/gyrodev.h"
 #include "pg/mco.h"
 #include "pg/motor.h"
@@ -92,7 +89,6 @@
 #include "pg/sdio.h"
 #include "pg/rcdevice.h"
 #include "pg/stats.h"
-#include "pg/tv_pid.h"
 #include "pg/board.h"
 #include "pg/freq.h"
 #include "pg/sbus_output.h"
@@ -314,7 +310,7 @@ static const char * const lookupTableLowpassType[] = {
 };
 
 static const char * const lookupTableFailsafe[] = {
-    "AUTO-LAND", "DROP", "GPS-RESCUE"
+    "AUTO-LAND", "DROP"
 };
 
 static const char * const lookupTableFailsafeSwitchMode[] = {
@@ -359,21 +355,6 @@ static const char * const lookupOverclock[] = {
     static const char * const lookupLedStripFormatRGB[] = {
         "GRB", "RGB", "GRBW"
     };
-#endif
-
-#ifdef USE_GPS_RESCUE
-static const char * const lookupTableRescueSanityType[] = {
-    "RESCUE_SANITY_OFF", "RESCUE_SANITY_ON", "RESCUE_SANITY_FS_ONLY"
-};
-const char * const lookupTableRescueAltitudeMode[] = {
-    "MAX_ALT", "FIXED_ALT", "CURRENT_ALT"
-};
-#endif
-
-#ifdef USE_GPS_NAV
-static const char * const lookupTableNavLoiterDirection[] = {
-    "CW", "CCW"
-};
 #endif
 
 
@@ -478,10 +459,6 @@ static const char * const lookupTableSmartFuelMode[] = {
 };
 #endif
 
-static const char * const lookupTableGovernorMode[] = {
-    "OFF", "RPM", "THROTTLE", "RPM_RANGE",
-};
-
 #ifdef USE_FBUS_MUX_FPGA
 static const char * const lookupTableFbusMuxMode[] = {
     "PWM", "FBUS", "DSHOT",
@@ -498,13 +475,6 @@ const lookupTableEntry_t lookupTables[] = {
     LOOKUP_TABLE_ENTRY(lookupTableGPSProvider),
     LOOKUP_TABLE_ENTRY(lookupTableGPSSBASMode),
     LOOKUP_TABLE_ENTRY(lookupTableGPSUBLOXMode),
-#ifdef USE_GPS_RESCUE
-    LOOKUP_TABLE_ENTRY(lookupTableRescueSanityType),
-    LOOKUP_TABLE_ENTRY(lookupTableRescueAltitudeMode),
-#endif
-#ifdef USE_GPS_NAV
-    LOOKUP_TABLE_ENTRY(lookupTableNavLoiterDirection),
-#endif
 #endif
 #ifdef USE_BLACKBOX
     LOOKUP_TABLE_ENTRY(lookupTableBlackboxDevice),
@@ -589,7 +559,6 @@ const lookupTableEntry_t lookupTables[] = {
 #ifdef USE_SMARTFUEL
     LOOKUP_TABLE_ENTRY(lookupTableSmartFuelMode),
 #endif
-    LOOKUP_TABLE_ENTRY(lookupTableGovernorMode),
 #ifdef USE_FBUS_MUX_FPGA
     LOOKUP_TABLE_ENTRY(lookupTableFbusMuxMode),
 #endif
@@ -650,7 +619,6 @@ const clivalue_t valueTable[] = {
 
     // 4 elements are output for the ACC calibration - The 3 axis values and the 4th representing whether calibration has been performed
     { "acc_calibration",            VAR_INT16  | MASTER_VALUE | MODE_ARRAY, .config.array.length = 4, PG_ACCELEROMETER_CONFIG, offsetof(accelerometerConfig_t, accZero.raw) },
-    { "tv_gain_curve",              VAR_UINT8  | PROFILE_TV_VALUE | MODE_ARRAY, .config.array.length = PID_AXIS_COUNT, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, gain_curve) },
     { "gain_curve",                 VAR_UINT8  | PROFILE_VALUE | MODE_ARRAY, .config.array.length = PID_AXIS_COUNT, PG_PID_PROFILE, offsetof(pidProfile_t, gain_curve) },
 #endif
 
@@ -787,16 +755,6 @@ const clivalue_t valueTable[] = {
     { "max_throttle",               VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { PWM_SERVO_PULSE_MIN, PWM_SERVO_PULSE_MAX }, PG_MOTOR_CONFIG, offsetof(motorConfig_t, maxthrottle) },
     { "min_command",                VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { PWM_SERVO_PULSE_MIN, PWM_SERVO_PULSE_MAX }, PG_MOTOR_CONFIG, offsetof(motorConfig_t, mincommand) },
 
-// PG_GOVERNOR_CONFIG
-    { "governor_mode",              VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_GOVERNOR_MODE }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_mode) },
-    { "governor_rpm",               VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 50000 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_rpm) },
-    { "governor_gain",              VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 20000 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_gain) },
-    { "governor_i_gain",            VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 200 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_i_gain) },
-    { "governor_throttle",          VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_throttle) },
-    { "governor_handover",          VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_handover) },
-    { "governor_ceiling",           VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_ceiling) },
-    { "governor_rpm_min",           VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 50000 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_rpm_min) },
-    { "governor_rpm_max",           VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 50000 }, PG_GOVERNOR_CONFIG, offsetof(governorConfig_t, governor_rpm_max) },
 #ifdef USE_DSHOT
 #ifdef USE_DSHOT_DMAR
     { "dshot_burst",                VAR_UINT8  | HARDWARE_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON_AUTO }, PG_MOTOR_CONFIG, offsetof(motorConfig_t, dev.useBurstDshot) },
@@ -828,7 +786,6 @@ const clivalue_t valueTable[] = {
     { "failsafe_throttle_low_delay",VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 300 }, PG_FAILSAFE_CONFIG, offsetof(failsafeConfig_t, failsafe_throttle_low_delay) },
     { "failsafe_procedure",         VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_FAILSAFE }, PG_FAILSAFE_CONFIG, offsetof(failsafeConfig_t, failsafe_procedure) },
     { "failsafe_recovery_delay",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 200 }, PG_FAILSAFE_CONFIG, offsetof(failsafeConfig_t, failsafe_recovery_delay) },
-    { "failsafe_stick_threshold",   VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 50 }, PG_FAILSAFE_CONFIG, offsetof(failsafeConfig_t, failsafe_stick_threshold) },
 
 // PG_BOARDALIGNMENT_CONFIG
     { "align_board_roll",           VAR_INT16  | MASTER_VALUE, .config.minmax = { -180, 360 }, PG_BOARD_ALIGNMENT, offsetof(boardAlignment_t, rollDegrees) },
@@ -978,53 +935,6 @@ const clivalue_t valueTable[] = {
     { "gps_set_home_point_once",    VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_GPS_CONFIG, offsetof(gpsConfig_t, gps_set_home_point_once) },
     { "gps_use_3d_speed",           VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_GPS_CONFIG, offsetof(gpsConfig_t, gps_use_3d_speed) },
     { "gps_fbus_assumed_sats",      VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 50 }, PG_GPS_CONFIG, offsetof(gpsConfig_t, fbus_assumed_sats) },
-
-#ifdef USE_GPS_RESCUE
-    // PG_GPS_RESCUE
-    { "gps_rescue_angle",           VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 200 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, angle) },
-    { "gps_rescue_alt_buffer",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, rescueAltitudeBufferM) },
-    { "gps_rescue_initial_alt",     VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 20, 100 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, initialAltitudeM) },
-    { "gps_rescue_descent_dist",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 30, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, descentDistanceM) },
-    { "gps_rescue_landing_alt",     VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 3, 10 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, targetLandingAltitudeM) },
-    { "gps_rescue_landing_dist",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 5, 15 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, targetLandingDistanceM) },
-    { "gps_rescue_ground_speed",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 30, 3000 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, rescueGroundspeed) },
-    { "gps_rescue_throttle_p",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, throttleP) },
-    { "gps_rescue_throttle_i",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, throttleI) },
-    { "gps_rescue_throttle_d",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, throttleD) },
-    { "gps_rescue_velocity_p",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, velP) },
-    { "gps_rescue_velocity_i",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, velI) },
-    { "gps_rescue_velocity_d",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, velD) },
-    { "gps_rescue_yaw_p",           VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, yawP) },
-
-    { "gps_rescue_throttle_min",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 1000, 2000 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, throttleMin) },
-    { "gps_rescue_throttle_max",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 1000, 2000 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, throttleMax) },
-    { "gps_rescue_ascend_rate",     VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 100, 2500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, ascendRate) },
-    { "gps_rescue_descend_rate",    VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 100, 500 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, descendRate) },
-    { "gps_rescue_throttle_hover",  VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 1000, 2000 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, throttleHover) },
-    { "gps_rescue_sanity_checks",   VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_GPS_RESCUE_SANITY_CHECK }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, sanityChecks) },
-    { "gps_rescue_min_sats",        VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 5, 50 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, minSats) },
-    { "gps_rescue_min_dth",         VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 50, 1000 }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, minRescueDth) },
-    { "gps_rescue_allow_arming_without_fix", VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, allowArmingWithoutFix) },
-    { "gps_rescue_alt_mode",        VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_GPS_RESCUE_ALT_MODE }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, altitudeMode) },
-#ifdef USE_MAG
-    { "gps_rescue_use_mag",         VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_GPS_RESCUE, offsetof(gpsRescueConfig_t, useMag) },
-#endif
-#endif
-
-#ifdef USE_GPS_NAV
-    // PG_GPS_NAV
-    { "nav_loiter_radius",          VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 20, 500 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, loiterRadiusM) },
-    { "nav_loiter_direction",       VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_NAV_LOITER_DIRECTION }, PG_GPS_NAV, offsetof(gpsNavConfig_t, loiterDirection) },
-    { "nav_rth_altitude",           VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 10, 500 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, rthAltitudeM) },
-    { "nav_min_sats",               VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 5, 50 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, minSats) },
-    { "nav_max_bank_angle",         VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 5, 45 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, maxBankAngleDeg) },
-    { "nav_max_pitch_angle",        VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 5, 45 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, maxPitchAngleDeg) },
-    { "nav_bearing_kp",             VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 1000 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, bearingKp) },
-    { "nav_altitude_kp",            VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 1000 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, altitudeKp) },
-    { "nav_altitude_kd",            VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 1000 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, altitudeKd) },
-    { "nav_throttle",               VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, throttle) },
-    { "nav_turn_coordination",      VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, 200 }, PG_GPS_NAV, offsetof(gpsNavConfig_t, turnCoordination) },
-#endif
 #endif
 
 // PG_RC_CONTROLS_CONFIG
@@ -1096,89 +1006,6 @@ const clivalue_t valueTable[] = {
 
     { "iterm_relax_level",          VAR_UINT8  | PROFILE_VALUE | MODE_ARRAY, .config.array.length = 3, PG_PID_PROFILE, offsetof(pidProfile_t, iterm_relax_level) },
     { "iterm_relax",                VAR_UINT8  | PROFILE_VALUE | MODE_ARRAY, .config.array.length = 3, PG_PID_PROFILE, offsetof(pidProfile_t, iterm_relax) },
-
-    { "cross_axis_relax_strength",  VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_PID_PROFILE, offsetof(pidProfile_t, cross_axis_relax_strength) },
-    { "cross_axis_relax_level",     VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 10, 250 }, PG_PID_PROFILE, offsetof(pidProfile_t, cross_axis_relax_level) },
-    { "cross_axis_relax_cutoff",    VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 1, 100 }, PG_PID_PROFILE, offsetof(pidProfile_t, cross_axis_relax_cutoff) },
-    { "cross_axis_relax_pitch_strength", VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_PID_PROFILE, offsetof(pidProfile_t, cross_axis_relax_pitch_strength) },
-
-    // Snap relax: a fast roll + pitch + yaw stick input (pop top, pinwheel, snap) stops
-    // roll/pitch/yaw feedback from fighting the rotation. snap_relax_strength = 0 turns it off.
-    { "snap_relax_strength",        VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_SNAP_RELAX_CONFIG, offsetof(snapRelaxConfig_t, strength) },
-    { "snap_relax_threshold",       VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { SNAP_RELAX_THRESHOLD_MIN, 100 }, PG_SNAP_RELAX_CONFIG, offsetof(snapRelaxConfig_t, threshold) },
-    { "snap_relax_window",          VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, SNAP_RELAX_TIME_MAX }, PG_SNAP_RELAX_CONFIG, offsetof(snapRelaxConfig_t, window) },
-    { "snap_relax_hold",            VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, SNAP_RELAX_TIME_MAX }, PG_SNAP_RELAX_CONFIG, offsetof(snapRelaxConfig_t, hold) },
-
-    // Prop-hang relax: nose up and not climbing or sinking, roll I is held back and bled off so
-    // the prop torque can roll the airframe. prop_hang_strength = 0 turns it off.
-    { "prop_hang_strength",         VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_PROP_HANG_CONFIG, offsetof(propHangConfig_t, strength) },
-    { "prop_hang_angle",            VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { PROP_HANG_ANGLE_MIN, PROP_HANG_ANGLE_MAX }, PG_PROP_HANG_CONFIG, offsetof(propHangConfig_t, angle) },
-    { "prop_hang_fade",             VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, PROP_HANG_FADE_MAX }, PG_PROP_HANG_CONFIG, offsetof(propHangConfig_t, fade) },
-
-    { "angle_level_strength",       VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 200 }, PG_PID_PROFILE, offsetof(pidProfile_t, angle.level_strength) },
-    { "angle_level_limit",          VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 10, 90 }, PG_PID_PROFILE, offsetof(pidProfile_t, angle.level_limit) },
-    { "angle_level_damping",        VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, LEVEL_DAMPING_MAX }, PG_LEVEL_CONFIG, offsetof(levelConfig_t, damping) },
-
-#ifdef USE_ACRO_TRAINER
-    // Zero axis overrides inherit angle_level_limit / acro_trainer_angle_limit.
-    { "angle_roll_limit",           VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 90 }, PG_ATTITUDE_LIMITS, offsetof(attitudeLimits_t, angle_roll) },
-    { "angle_pitch_limit",          VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 75 }, PG_ATTITUDE_LIMITS, offsetof(attitudeLimits_t, angle_pitch) },
-    { "acro_trainer_roll_limit",    VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 90 }, PG_ATTITUDE_LIMITS, offsetof(attitudeLimits_t, trainer_roll) },
-    { "acro_trainer_pitch_limit",   VAR_UINT8 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 75 }, PG_ATTITUDE_LIMITS, offsetof(attitudeLimits_t, trainer_pitch) },
-    { "acro_trainer_angle_limit",   VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 10, 80 }, PG_PID_PROFILE, offsetof(pidProfile_t, trainer.angle_limit) },
-    { "acro_trainer_lookahead_ms",  VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 10, 200 }, PG_PID_PROFILE, offsetof(pidProfile_t, trainer.lookahead_ms) },
-    { "acro_trainer_gain",          VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 25, 255 }, PG_PID_PROFILE, offsetof(pidProfile_t, trainer.gain) },
-#endif // USE_ACRO_TRAINER
-
-
-    { "atthold_gain",               VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_PID_PROFILE, offsetof(pidProfile_t, atthold.gain) },
-    { "atthold_deadband",           VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_PID_PROFILE, offsetof(pidProfile_t, atthold.deadband) },
-    { "atthold_max_rate",           VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, 1800 }, PG_PID_PROFILE, offsetof(pidProfile_t, atthold.max_rate) },
-
-
-// PG_THRUST_VECTOR_PROFILE
-    { "tv_master_gain",             VAR_UINT16 | PROFILE_TV_VALUE | MODE_ARRAY, .config.array.length = PID_AXIS_COUNT, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, master_gain) },
-
-    { "tv_pitch_p_gain",            VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_PITCH].P) },
-    { "tv_pitch_i_gain",            VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_PITCH].I) },
-    { "tv_pitch_d_gain",            VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_PITCH].D) },
-    { "tv_pitch_f_gain",            VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_PITCH].F) },
-    { "tv_pitch_b_gain",            VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_PITCH].B) },
-    { "tv_roll_p_gain",             VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_ROLL].P) },
-    { "tv_roll_i_gain",             VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_ROLL].I) },
-    { "tv_roll_d_gain",             VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_ROLL].D) },
-    { "tv_roll_f_gain",             VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_ROLL].F) },
-    { "tv_roll_b_gain",             VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_ROLL].B) },
-    { "tv_yaw_p_gain",              VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_YAW].P) },
-    { "tv_yaw_i_gain",              VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_YAW].I) },
-    { "tv_yaw_d_gain",              VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_YAW].D) },
-    { "tv_yaw_b_gain",              VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_YAW].B) },
-    { "tv_yaw_f_gain",              VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, pid[PID_YAW].F) },
-
-    { "tv_pitch_d_cutoff",          VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, dterm_cutoff[PID_PITCH]) },
-    { "tv_pitch_b_cutoff",          VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, bterm_cutoff[PID_PITCH]) },
-    { "tv_pitch_gyro_cutoff",       VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, gyro_cutoff[PID_PITCH]) },
-
-    { "tv_roll_d_cutoff",           VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, dterm_cutoff[PID_ROLL]) },
-    { "tv_roll_b_cutoff",           VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, bterm_cutoff[PID_ROLL]) },
-    { "tv_roll_gyro_cutoff",        VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, gyro_cutoff[PID_ROLL]) },
-
-    { "tv_yaw_d_cutoff",            VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, dterm_cutoff[PID_YAW]) },
-    { "tv_yaw_b_cutoff",            VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, bterm_cutoff[PID_YAW]) },
-    { "tv_yaw_gyro_cutoff",         VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, gyro_cutoff[PID_YAW]) },
-
-    { "tv_error_limit",             VAR_UINT8  | PROFILE_TV_VALUE | MODE_ARRAY, .config.array.length = 3, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, error_limit) },
-
-    { "tv_iterm_decay_time",        VAR_UINT8  | PROFILE_TV_VALUE | MODE_ARRAY, .config.array.length = 3, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, iterm_decay_time) },
-    { "tv_iterm_decay_limit",       VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, iterm_decay_limit) },
-
-    { "tv_iterm_relax_level",       VAR_UINT8  | PROFILE_TV_VALUE | MODE_ARRAY, .config.array.length = 3, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, iterm_relax_level) },
-    { "tv_iterm_relax",             VAR_UINT8  | PROFILE_TV_VALUE | MODE_ARRAY, .config.array.length = 3, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, iterm_relax) },
-
-    { "tv_hold_gain",               VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 250 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, hold.gain) },
-    { "tv_hold_deadband",           VAR_UINT8  | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 100 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, hold.deadband) },
-    { "tv_hold_max_rate",           VAR_UINT16 | PROFILE_TV_VALUE, .config.minmaxUnsigned = { 0, 1800 }, PG_THRUST_VECTOR_PROFILE, offsetof(tvPidProfile_t, hold.max_rate) },
-
 
 // PG_TELEMETRY_CONFIG
 #ifdef USE_TELEMETRY

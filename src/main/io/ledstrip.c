@@ -481,7 +481,6 @@ static const struct {
     uint16_t flightMode;
     uint8_t ledMode;
 } flightModeToLed[] = {
-    {ANGLE_MODE,    LED_MODE_ANGLE},
     {0,             LED_MODE_ORIENTATION},
 };
 

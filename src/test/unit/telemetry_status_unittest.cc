@@ -23,9 +23,7 @@ extern "C" {
 #include "platform.h"
 #include "fc/rc_modes.h"
 #include "fc/runtime_config.h"
-#include "flight/autotrim.h"
 #include "flight/failsafe.h"
-#include "flight/trim_monitor.h"
 #include "sensors/battery.h"
 #include "sensors/sensors.h"
 #include "telemetry/status.h"
@@ -36,26 +34,21 @@ uint16_t flightModeFlags;
 
 // Everything status.c reads, reset per test.
 static struct {
-    bool airborne, motorsRunning, rxLink, backupEnabled, backupActive;
+    bool motorsRunning, rxLink, backupEnabled, backupActive;
     failsafePhase_e failsafe;
-    bool gpsHealthy, canRth, canLoiter, rthSwitch, loiterSwitch;
-    bool gpsEnabled, gpsNavProvider, rthMapped, loiterMapped;
+    bool gpsHealthy;
     uint32_t sensorMask;
     batteryState_e battery;
     bool saturationLatch;
     timeMs_t now;
     bool gyroOverflow, accCalibrated;
     bool servoOverride, mixerOverride, motorOverride, modeOverride;
-    bool attHold, tvHold, trainer;
-    autoTrimState_e autoTrim;
-    trimMonitorState_e trim[3];
     bool blackboxLogging, blackboxFull;
     bool logic[16];
-    uint8_t pidProfile, ratesProfile, batteryProfile, tvProfile;
+    uint8_t pidProfile, ratesProfile, batteryProfile;
     bool dirty, saving, reboot, beeper, rpm;
 } fc;
 
-bool isAirborne(void) { return fc.airborne; }
 bool areMotorsRunning(void) { return fc.motorsRunning; }
 uint8_t getMotorCount(void) { return 2; }
 bool hasMotorOverride(uint8_t motor) { return fc.motorOverride && motor == 1; }
@@ -66,18 +59,6 @@ bool rxInputBackupIsActive(void) { return fc.backupActive; }
 bool rxInputBackupAllLinked(void) { return fc.backupActive; }
 failsafePhase_e failsafePhase(void) { return fc.failsafe; }
 bool gpsIsHealthy(void) { return fc.gpsHealthy; }
-bool navCanRTH(void) { return fc.canRth; }
-bool navCanLoiter(void) { return fc.canLoiter; }
-bool gpsIsEnabled(void) { return fc.gpsEnabled; }
-bool gpsProviderSupportsNav(void) { return fc.gpsNavProvider; }
-bool isModeActivationConditionPresent(boxId_e box)
-{
-    return (box == BOXRTH && fc.rthMapped) || (box == BOXLOITER && fc.loiterMapped);
-}
-bool IS_RC_MODE_ACTIVE(boxId_e box)
-{
-    return (box == BOXRTH && fc.rthSwitch) || (box == BOXLOITER && fc.loiterSwitch);
-}
 bool sensors(uint32_t mask) { return fc.sensorMask & mask; }
 batteryState_e getBatteryState(void) { return fc.battery; }
 bool mixerTakeStabilizedSaturation(void)
@@ -92,18 +73,12 @@ bool accHasBeenCalibrated(void) { return fc.accCalibrated; }
 bool isServoOverrideActive(void) { return fc.servoOverride; }
 bool isMixerOverrideActive(void) { return fc.mixerOverride; }
 bool isModeOverrideActive(void) { return fc.modeOverride; }
-bool attHoldIsHolding(int axis) { return fc.attHold && axis == 0; }
-bool tvHoldIsHolding(int axis) { return fc.tvHold && axis == 1; }
-bool acroTrainerIsLimiting(int axis) { return fc.trainer && axis == 1; }
-autoTrimState_e autoTrimGetState(void) { return fc.autoTrim; }
-trimMonitorState_e trimMonitorGetState(int axis) { return fc.trim[axis]; }
 bool blackboxIsLogging(void) { return fc.blackboxLogging; }
 bool isBlackboxDeviceFull(void) { return fc.blackboxFull; }
 bool logicConditionGetValue(int index) { return index >= 0 && index < 16 && fc.logic[index]; }
 uint8_t getCurrentPidProfileIndex(void) { return fc.pidProfile; }
 uint8_t getCurrentControlRateProfileIndex(void) { return fc.ratesProfile; }
 uint8_t getCurrentBatteryProfileIndex(void) { return fc.batteryProfile; }
-uint8_t getCurrentTvProfileIndex(void) { return fc.tvProfile; }
 bool isConfigDirty(void) { return fc.dirty; }
 bool isEepromWriteInProgress(void) { return fc.saving; }
 bool getRebootRequired(void) { return fc.reboot; }
@@ -122,6 +97,7 @@ protected:
         memset(&fc, 0, sizeof(fc));
         armingFlags = 0;
         stateFlags = 0;
+        flightModeFlags = 0;
         fc.accCalibrated = true;
         fc.now = clock;
         telemetrySystemStatus();
@@ -139,31 +115,29 @@ TEST_F(TelemetryStatusTest, StatusLayoutIsFixed)
 {
     armingFlags = ARMED;
     stateFlags = GPS_FIX | GPS_FIX_HOME;
-    fc.airborne = fc.motorsRunning = true;
+    flightModeFlags = INFLIGHT_MODE;                  // car running
+    fc.motorsRunning = true;
     fc.backupEnabled = fc.backupActive = true;        // main link down: backup in control
-    fc.failsafe = FAILSAFE_GPS_RESCUE;                // 6
+    fc.failsafe = FAILSAFE_RX_LOSS_RECOVERED;         // 5
     fc.gpsHealthy = true;
-    fc.rthSwitch = true;                              // no ACC -> RTH blocked
     fc.battery = BATTERY_CRITICAL;                    // 2
     fc.saturationLatch = true;
     fc.gyroOverflow = true;
     fc.servoOverride = true;
-    fc.trainer = true;
-    fc.autoTrim = AUTOTRIM_SAVE_PENDING;              // 2
     fc.blackboxLogging = true;
     fc.logic[0] = fc.logic[3] = true;
     fc.logic[4] = true;                               // beyond the four reported
 
     const uint32_t expected =
-        (1u << 0) | (1u << 1) | (1u << 2) |           // armed, airborne, motors
+        (1u << 0) | (1u << 1) | (1u << 2) |           // armed, running, motors
         (1u << 4) | (1u << 5) |                       // backup up, backup in control
-        (6u << 6) |                                   // failsafe phase
+        (5u << 6) |                                   // failsafe phase
         (2u << 9) | (1u << 11) |                      // fix + home, GPS healthy
-        (2u << 12) |                                  // RTH blocked
+                                                      // 12-13 reserved (was nav blocked)
         (2u << 14) |                                  // battery critical
         (1u << 17) | (1u << 18) |                     // saturated, gyro overflow
-        (1u << 20) | (1u << 21) |                     // override, assist
-        (2u << 22) |                                  // autotrim save pending
+        (1u << 20) |                                  // override
+                                                      // 21-23 reserved (was assist, autotrim)
         (1u << 24) |                                  // blackbox logging
         (1u << 25) | (1u << 28);                      // logic conditions 1 and 4
 
@@ -194,29 +168,11 @@ TEST_F(TelemetryStatusTest, GpsFixField)
     EXPECT_EQ(TELEM_GPS_FIX_HOME, statusField(TELEM_STATUS_GPS_FIX_SHIFT, TELEM_STATUS_GPS_FIX_MASK));
 }
 
-TEST_F(TelemetryStatusTest, NavBlockedFollowsEngageRules)
+TEST_F(TelemetryStatusTest, RunningFollowsTheLatch)
 {
-    auto blocked = [] { return statusField(TELEM_STATUS_NAV_BLOCKED_SHIFT, TELEM_STATUS_NAV_BLOCKED_MASK); };
-
-    fc.canLoiter = fc.canRth = true;
-    fc.sensorMask = SENSOR_ACC;
-
-    fc.loiterSwitch = true;
-    EXPECT_EQ(TELEM_NAV_BLOCKED_LOITER, blocked());   // disarmed
-    armingFlags = ARMED;
-    EXPECT_EQ(TELEM_NAV_BLOCKED_NONE, blocked());
-
-    fc.rthSwitch = true;                              // RTH wins over LOITER
-    fc.canRth = false;                                // e.g. no home
-    EXPECT_EQ(TELEM_NAV_BLOCKED_RTH, blocked());
-    fc.canRth = true;
-    EXPECT_EQ(TELEM_NAV_BLOCKED_NONE, blocked());
-
-    fc.sensorMask = 0;                                // no ACC
-    EXPECT_EQ(TELEM_NAV_BLOCKED_RTH, blocked());
-
-    fc.rthSwitch = fc.loiterSwitch = false;
-    EXPECT_EQ(TELEM_NAV_BLOCKED_NONE, blocked());
+    EXPECT_FALSE(telemetrySystemStatus() & TELEM_STATUS_RUNNING);
+    flightModeFlags = INFLIGHT_MODE;
+    EXPECT_EQ(TELEM_STATUS_RUNNING, telemetrySystemStatus());
 }
 
 TEST_F(TelemetryStatusTest, ControlSaturationIsHeldBriefly)
@@ -243,7 +199,7 @@ TEST_F(TelemetryStatusTest, AccNotCalibratedOnlyWithAcc)
     EXPECT_TRUE(telemetrySystemStatus() & TELEM_STATUS_ACC_NOT_CALIBRATED);
 }
 
-TEST_F(TelemetryStatusTest, AnyOverrideOrAssistSetsItsBit)
+TEST_F(TelemetryStatusTest, AnyOverrideSetsItsBit)
 {
     fc.motorOverride = true;
     EXPECT_EQ(TELEM_STATUS_OVERRIDE_ACTIVE, telemetrySystemStatus());
@@ -253,13 +209,6 @@ TEST_F(TelemetryStatusTest, AnyOverrideOrAssistSetsItsBit)
     fc.mixerOverride = false;
     fc.modeOverride = true;
     EXPECT_EQ(TELEM_STATUS_OVERRIDE_ACTIVE, telemetrySystemStatus());
-    fc.modeOverride = false;
-
-    fc.attHold = true;
-    EXPECT_EQ(TELEM_STATUS_ASSIST_HOLDING, telemetrySystemStatus());
-    fc.attHold = false;
-    fc.tvHold = true;
-    EXPECT_EQ(TELEM_STATUS_ASSIST_HOLDING, telemetrySystemStatus());
 }
 
 TEST_F(TelemetryStatusTest, ConfigLayoutIsFixed)
@@ -267,60 +216,28 @@ TEST_F(TelemetryStatusTest, ConfigLayoutIsFixed)
     fc.pidProfile = 5;          // reported 1-based
     fc.ratesProfile = 0;
     fc.batteryProfile = 2;
-    fc.tvProfile = 3;
     fc.dirty = fc.saving = fc.reboot = fc.beeper = true;
     fc.sensorMask = SENSOR_ACC | SENSOR_BARO | SENSOR_MAG | SENSOR_GPS;
     fc.backupEnabled = true;
     fc.blackboxFull = true;
     fc.rpm = true;
-    fc.gpsEnabled = fc.rthMapped = true;              // GPS can't navigate, RTH on a switch
 
+    // 9-11 reserved (was TV profile), 23-29 reserved (was trim monitor, GPS nav unsupported)
     const uint32_t expected =
-        (6u << 0) | (1u << 3) | (3u << 6) | (4u << 9) |
+        (6u << 0) | (1u << 3) | (3u << 6) |
         (1u << 12) | (1u << 13) | (1u << 14) | (1u << 15) |
         (1u << 16) | (1u << 17) | (1u << 18) | (1u << 19) |
-        (1u << 20) | (1u << 21) | (1u << 22) |
-        (1u << 29);
+        (1u << 20) | (1u << 21) | (1u << 22);
 
     EXPECT_EQ(expected, telemetrySystemConfig());
 }
 
-// Only when GPS nav is set up, and from the settings: no fix is needed.
-TEST_F(TelemetryStatusTest, GpsNavUnsupportedOnlyWhenNavIsSetUp)
-{
-    auto unsupported = [] { return (telemetrySystemConfig() & TELEM_CONFIG_GPS_NAV_UNSUPPORTED) != 0; };
-
-    fc.gpsEnabled = true;                             // e.g. CRSF GPS
-    EXPECT_FALSE(unsupported());                      // no nav mode on a switch
-    fc.loiterMapped = true;
-    EXPECT_TRUE(unsupported());
-    fc.gpsNavProvider = true;                         // u-blox
-    EXPECT_FALSE(unsupported());
-    fc.gpsNavProvider = false;
-    fc.gpsEnabled = false;                            // no GPS at all
-    EXPECT_FALSE(unsupported());
-}
-
-// The radio decodes these per axis: 0 in trim, 1 right / nose up, 2 left / nose down.
-TEST_F(TelemetryStatusTest, TrimFieldsPerAxis)
-{
-    fc.trim[FD_ROLL] = TRIM_MONITOR_RIGHT_UP;
-    fc.trim[FD_PITCH] = TRIM_MONITOR_LEFT_DOWN;
-    fc.trim[FD_YAW] = TRIM_MONITOR_IN_TRIM;
-    EXPECT_EQ((1u << 23) | (2u << 25), telemetrySystemConfig() & (0x3Fu << 23));
-
-    fc.trim[FD_ROLL] = TRIM_MONITOR_IN_TRIM;
-    fc.trim[FD_YAW] = TRIM_MONITOR_LEFT_DOWN;
-    EXPECT_EQ((2u << 25) | (2u << 27), telemetrySystemConfig() & (0x3Fu << 23));
-}
-
 TEST_F(TelemetryStatusTest, SignBitIsNeverSet)
 {
-    for (bool *flag : {&fc.airborne, &fc.motorsRunning, &fc.rxLink, &fc.backupEnabled, &fc.backupActive,
-            &fc.gpsHealthy, &fc.canRth, &fc.canLoiter, &fc.rthSwitch, &fc.loiterSwitch, &fc.saturationLatch,
-            &fc.gpsEnabled, &fc.rthMapped, &fc.loiterMapped,
-            &fc.gyroOverflow, &fc.servoOverride, &fc.mixerOverride, &fc.motorOverride, &fc.modeOverride, &fc.attHold,
-            &fc.tvHold, &fc.trainer, &fc.blackboxLogging, &fc.blackboxFull,
+    for (bool *flag : {&fc.motorsRunning, &fc.rxLink, &fc.backupEnabled, &fc.backupActive,
+            &fc.gpsHealthy, &fc.saturationLatch,
+            &fc.gyroOverflow, &fc.servoOverride, &fc.mixerOverride, &fc.motorOverride, &fc.modeOverride,
+            &fc.blackboxLogging, &fc.blackboxFull,
             &fc.dirty, &fc.saving, &fc.reboot, &fc.beeper, &fc.rpm}) {
         *flag = true;
     }
@@ -328,13 +245,12 @@ TEST_F(TelemetryStatusTest, SignBitIsNeverSet)
         logic = true;
     }
     fc.sensorMask = UINT32_MAX;
-    fc.failsafe = FAILSAFE_GPS_RESCUE;
+    fc.failsafe = FAILSAFE_RX_LOSS_RECOVERED;
     fc.battery = BATTERY_INIT;
-    fc.autoTrim = AUTOTRIM_SAVE_PENDING;
-    fc.trim[FD_ROLL] = fc.trim[FD_PITCH] = fc.trim[FD_YAW] = TRIM_MONITOR_LEFT_DOWN;
-    fc.pidProfile = fc.ratesProfile = fc.batteryProfile = fc.tvProfile = 5;
+    fc.pidProfile = fc.ratesProfile = fc.batteryProfile = 5;
     armingFlags = 0xFF;
     stateFlags = 0xFF;
+    flightModeFlags = 0xFFFF;
 
     EXPECT_FALSE(telemetrySystemStatus() & 0x80000000u);
     EXPECT_FALSE(telemetrySystemConfig() & 0x80000000u);

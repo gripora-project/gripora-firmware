@@ -35,33 +35,14 @@ extern "C" {
 
 gpsSolutionData_t gpsSol;
 
-// IMU and altitude estimate, for prop-hang detection. rMat[2][0] is the nose-up component.
-float rMat[3][3];
-float mockVario = 0;
-bool mockHasAltitude = true;
-float getVario(void) { return mockVario; }
-bool hasEstimatedAltitude(void) { return mockHasAltitude; }
 bool gyroOverflowDetected(void) { return false; }
 void beeperConfirmationBeeps(uint8_t) {}
 float getThrottle(void) { return throttle; }
-void governorInitProfile(const pidProfile_t *) {}
-void levelingInit(const pidProfile_t *) {}
-void INIT_CODE rescueInitProfile(const pidProfile_t *) {}
-bool isSpooledUp(void) { return true; }
 void setpointInitProfile(void) {}
-bool isAirborne(void) { return true; }
-float getMotor1Speedf(void) { return 0; }
-float rescueApply(uint8_t, float setpoint) { return setpoint; }
-float angleModeApply(int, float pidSetpoint) { return pidSetpoint; }
-void angleModeReset(void) {}
-float getSpoolUpRatio(void) { return 1.0f; }
 float mixerGetInput(uint8_t) { return 0.0; }
 bool mixerSaturated(uint8_t) { return false; }
 bool stabilizationBypassed = false;
 bool mixerStabilizationBypassed(void) { return stabilizationBypassed; }
-void attHoldInit(const pidProfile_t *) {}
-float attHoldApply(int, float pidSetpoint) { return pidSetpoint; }
-float attHoldIDecayScale(int) { return 1.0f; }
 uint8_t getCurrentPidProfileIndex(void) { return 0; }
 void changePidProfile(uint8_t) {}
 } // extern "C"
@@ -109,10 +90,18 @@ class PIDTestBase : public ::testing::Test {
   public:
     void SetUp() override {
         g_mock = &mock;
+        throttle = 0;
         pgResetAll();
         pidInit(mockPidProfile);
     }
-    void TearDown() override { g_mock = nullptr; }
+    void TearDown() override
+    {
+        for (int axis = 0; axis < 3; axis++) {
+            gyro.gyroADCf[axis] = 0;
+        }
+        throttle = 0;
+        g_mock = nullptr;
+    }
     PIDIO getResponse(PIDIO &input)
     {
         PIDIO output;
@@ -132,36 +121,78 @@ class PIDTestBase : public ::testing::Test {
 
         return output;
     }
+    // Only one gain set on every axis, the rest zero
+    void onlyGains(uint16_t P, uint16_t I, uint16_t F, uint16_t B)
+    {
+        mockPidProfile->pid_mode = 1;
+        for (int axis = 0; axis < 3; axis++) {
+            mockPidProfile->pid[axis].P = P;
+            mockPidProfile->pid[axis].I = I;
+            mockPidProfile->pid[axis].D = 0;
+            mockPidProfile->pid[axis].F = F;
+            mockPidProfile->pid[axis].B = B;
+        }
+    }
     StrictMock<MockInterface> mock;
 };
 
 TEST_F(PIDTestBase, Mode0)
-// Mode 0 sanity check
+// Mode 0 sanity check: feedforward only, yaw (steering) only
 {
     mockPidProfile->pid_mode = 0;
-    mockPidProfile->pid[0].F = 1;
+    mockPidProfile->pid[PID_YAW].F = 1;
     pidLoadProfile(mockPidProfile);
 
     PIDIO input;
     for (int i = 0; i < 100; i++) {
-        input[0].push_back(0);
-        input[1].push_back(0);
-        input[2].push_back(0);
-        input[3].push_back(0);
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(0);
+        }
     }
     for (int i = 0; i < 100; i++) {
-        input[0].push_back(1);
-        input[1].push_back(1);
-        input[2].push_back(1);
-        input[3].push_back(1);
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(1);
+        }
     }
 
     PIDIO output = getResponse(input);
     for (int i = 0; i < 100; i++) {
-        EXPECT_EQ(output[0][i], 0);
+        EXPECT_EQ(output[PID_YAW][i], 0);
     }
     for (int i = 100; i < 200; i++) {
-        EXPECT_NE(output[0][i], 0);
+        EXPECT_NE(output[PID_YAW][i], 0);
+        EXPECT_EQ(output[PID_ROLL][i], 0);
+        EXPECT_EQ(output[PID_PITCH][i], 0);
+    }
+}
+
+TEST_F(PIDTestBase, RollAndPitchNeverStabilised)
+// Only yaw is stabilised: roll and pitch hold zero setpoint and output whatever the
+// sticks and the gyro do, so they never feed the mixer
+{
+    onlyGains(100, 100, 100, 100);
+    pidInit(mockPidProfile);
+
+    gyro.gyroADCf[PID_ROLL] = 50;
+    gyro.gyroADCf[PID_PITCH] = -50;
+
+    PIDIO input;
+    for (int i = 0; i < 300; i++) {
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(0.5f);
+        }
+    }
+
+    PIDIO output = getResponse(input);
+    for (int i = 0; i < 300; i++) {
+        EXPECT_EQ(output[PID_ROLL][i], 0);
+        EXPECT_EQ(output[PID_PITCH][i], 0);
+    }
+    EXPECT_NE(output[PID_YAW][299], 0);
+
+    for (int axis = PID_ROLL; axis <= PID_PITCH; axis++) {
+        EXPECT_EQ(pidGetSetpoint(axis), 0);
+        EXPECT_EQ(pidGetAxisData()[axis].axisError, 0);
     }
 }
 
@@ -173,26 +204,24 @@ TEST_F(PIDFBTest, B)
 // Basic B test
 {
     mockPidProfile->pid_mode = 3;
-    mockPidProfile->pid[0].P = 0;
-    mockPidProfile->pid[0].I = 0;
-    mockPidProfile->pid[0].D = 0;
-    mockPidProfile->pid[0].F = 0;
-    mockPidProfile->pid[0].B = 100;
-    mockPidProfile->bterm_cutoff[0] = 30;
+    mockPidProfile->pid[PID_YAW].P = 0;
+    mockPidProfile->pid[PID_YAW].I = 0;
+    mockPidProfile->pid[PID_YAW].D = 0;
+    mockPidProfile->pid[PID_YAW].F = 0;
+    mockPidProfile->pid[PID_YAW].B = 100;
+    mockPidProfile->bterm_cutoff[PID_YAW] = 30;
     pidLoadProfile(mockPidProfile);
 
     PIDIO input;
     for (int i = 0; i < 500; i++) {
-        input[0].push_back(0);
-        input[1].push_back(0);
-        input[2].push_back(0);
-        input[3].push_back(0);
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(0);
+        }
     }
     for (int i = 0; i < 500; i++) {
-        input[0].push_back(1);
-        input[1].push_back(1);
-        input[2].push_back(1);
-        input[3].push_back(1);
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(1);
+        }
     }
 
     PIDIO output = getResponse(input);
@@ -206,19 +235,11 @@ class PIDBypassTest : public PIDTestBase {
         stabilizationBypassed = false;
         PIDTestBase::TearDown();
     }
-    // Roll I-term accumulator after holding a stick step with only I active
-    float rollAxisErrorAfterStep(bool bypassed)
+    // Yaw I-term accumulator after holding a stick step with only I active
+    float yawAxisErrorAfterStep(bool bypassed)
     {
         stabilizationBypassed = bypassed;
-        mockPidProfile->pid_mode = 1;
-        for (int axis = 0; axis < 3; axis++) {
-            mockPidProfile->pid[axis].P = 0;
-            mockPidProfile->pid[axis].I = 0;
-            mockPidProfile->pid[axis].D = 0;
-            mockPidProfile->pid[axis].F = 0;
-            mockPidProfile->pid[axis].B = 0;
-        }
-        mockPidProfile->pid[0].I = 100;
+        onlyGains(0, 100, 0, 0);
         pidInit(mockPidProfile);
 
         PIDIO input;
@@ -228,24 +249,25 @@ class PIDBypassTest : public PIDTestBase {
             }
         }
         getResponse(input);
-        return pidGetAxisData()[0].axisError;
+        return pidGetAxisData()[PID_YAW].axisError;
     }
 };
 
-TEST_F(PIDBypassTest, ItermWindsUpInStabilizedFlight)
+TEST_F(PIDBypassTest, ItermWindsUpWhileStabilised)
 {
-    EXPECT_GT(rollAxisErrorAfterStep(false), 0);
+    // The yaw setpoint has the opposite sign to the stick
+    EXPECT_LT(yawAxisErrorAfterStep(false), 0);
 }
 
-TEST_F(PIDBypassTest, ItermHeldWhileManualOrPassthrough)
+TEST_F(PIDBypassTest, ItermHeldWhileGyroOff)
 {
-    EXPECT_FLOAT_EQ(rollAxisErrorAfterStep(true), 0);
+    EXPECT_FLOAT_EQ(yawAxisErrorAfterStep(true), 0);
 }
 
 class PIDAttenuationTest : public PIDTestBase {
   public:
-    // Steady roll output with only one term active, after a small stick step
-    float rollOutputAt(uint8_t tpaGain, int sample)
+    // Steady yaw output magnitude with only one term active, after a small stick step
+    float yawOutputAt(uint8_t tpaGain, int sample)
     {
         mockPidProfile->fw_tpa_gain = tpaGain;
         pidInit(mockPidProfile);
@@ -261,38 +283,24 @@ class PIDAttenuationTest : public PIDTestBase {
                 input[axis].push_back(0.01f);
             }
         }
-        return getResponse(input)[0][sample];
-    }
-
-    void onlyRoll(uint16_t F, uint16_t B)
-    {
-        mockPidProfile->pid_mode = 1;
-        for (int axis = 0; axis < 3; axis++) {
-            mockPidProfile->pid[axis].P = 0;
-            mockPidProfile->pid[axis].I = 0;
-            mockPidProfile->pid[axis].D = 0;
-            mockPidProfile->pid[axis].F = 0;
-            mockPidProfile->pid[axis].B = 0;
-        }
-        mockPidProfile->pid[0].F = F;
-        mockPidProfile->pid[0].B = B;
+        return fabsf(getResponse(input)[PID_YAW][sample]);
     }
 };
 
 TEST_F(PIDAttenuationTest, ThrottleAttenuationScalesF)
 {
-    onlyRoll(100, 0);
-    const float full = rollOutputAt(100, 240);
-    const float half = rollOutputAt(50, 240);
+    onlyGains(0, 0, 100, 0);
+    const float full = yawOutputAt(100, 240);
+    const float half = yawOutputAt(50, 240);
     EXPECT_GT(full, 0);
     EXPECT_NEAR(half, full * 0.5f, fabsf(full) * 1e-4f);
 }
 
 TEST_F(PIDAttenuationTest, ThrottleAttenuationScalesB)
 {
-    onlyRoll(0, 100);
-    const float full = rollOutputAt(100, 52);
-    const float half = rollOutputAt(50, 52);
+    onlyGains(0, 0, 0, 100);
+    const float full = yawOutputAt(100, 52);
+    const float half = yawOutputAt(50, 52);
     EXPECT_GT(full, 0);
     EXPECT_NEAR(half, full * 0.5f, fabsf(full) * 1e-4f);
 }
@@ -300,229 +308,67 @@ TEST_F(PIDAttenuationTest, ThrottleAttenuationScalesB)
 TEST_F(PIDAttenuationTest, AttenuationNeverDropsBelowFloor)
 {
     // 10 % is below anything the CLI allows, standing in for a curve point near zero
-    onlyRoll(100, 0);
-    const float full = rollOutputAt(100, 240);
-    const float floored = rollOutputAt(10, 240);
+    onlyGains(0, 0, 100, 0);
+    const float full = yawOutputAt(100, 240);
+    const float floored = yawOutputAt(10, 240);
     EXPECT_GT(full, 0);
     EXPECT_NEAR(floored, full * PID_ATTENUATION_MIN, fabsf(full) * 1e-4f);
 }
 
-TEST_F(PIDAttenuationTest, ManualFeedforwardIgnoresAttenuation)
+TEST_F(PIDAttenuationTest, ThrottleCurveUsesThrottleMagnitude)
 {
-    onlyRoll(100, 0);
-    mockPidProfile->fw_tpa_gain = 100;
-    pidLoadProfile(mockPidProfile);
-    const float full = pidGetFeedforward(0, 100);
-    mockPidProfile->fw_tpa_gain = 25;
-    pidLoadProfile(mockPidProfile);
-    EXPECT_GT(full, 0);
-    EXPECT_FLOAT_EQ(pidGetFeedforward(0, 100), full);
+    // Car throttle is signed: brake/reverse below neutral attenuates like the same amount of
+    // forward throttle. Curve 1 falls from 100 % at neutral to 50 % at full throttle.
+    gainCurvesMutable(0)->count = 2;
+    gainCurvesMutable(0)->points[0].x = 0;
+    gainCurvesMutable(0)->points[0].y = 100;
+    gainCurvesMutable(0)->points[1].x = 1000;
+    gainCurvesMutable(0)->points[1].y = 50;
+    mockPidProfile->fw_tpa_curve = 1;
+    onlyGains(0, 0, 100, 0);
+
+    throttle = 0;
+    const float neutral = yawOutputAt(100, 240);
+    throttle = 0.8f;
+    const float forward = yawOutputAt(100, 240);
+    throttle = -0.8f;
+    const float reverse = yawOutputAt(100, 240);
+
+    EXPECT_GT(neutral, 0);
+    EXPECT_NEAR(forward, neutral * 0.6f, fabsf(neutral) * 1e-4f);
+    EXPECT_NEAR(reverse, forward, fabsf(neutral) * 1e-4f);
+
+    // Full reverse is the curve's right edge, not below its left edge
+    throttle = -1.0f;
+    EXPECT_NEAR(yawOutputAt(100, 240), neutral * 0.5f, fabsf(neutral) * 1e-4f);
 }
 
-class PIDSnapRelaxTest : public PIDTestBase {
-  public:
-    void TearDown() override
-    {
-        for (int axis = 0; axis < 3; axis++) {
-            gyro.gyroADCf[axis] = 0;
+TEST_F(PIDTestBase, ItermDecaysWithoutAirborneGating)
+// A car is always on the ground: I accumulates from arming on and decays at the
+// configured rate, with no take-off detection holding it back
+{
+    onlyGains(0, 100, 0, 0);
+    mockPidProfile->iterm_decay_time[PID_YAW] = 100;   // 1 s
+    pidInit(mockPidProfile);
+
+    // Stick held: I builds
+    PIDIO input;
+    for (int i = 0; i < 300; i++) {
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(0.1f);
         }
-        PIDTestBase::TearDown();
     }
-    // Roll P and axis error with the roll stick at 0.8 throughout, pitch and yaw following
-    // lagMs later, and the roll gyro steady at gyroScale x the roll setpoint
-    pidAxisData_t rollAfterSnap(uint8_t strength, int lagMs, float gyroScale)
-    {
-        return axisAfterSnap(0, strength, lagMs, gyroScale);
+    getResponse(input);
+    const float built = fabsf(pidGetAxisData()[PID_YAW].axisError);
+    EXPECT_GT(built, 1);
+
+    // Stick released with the car tracking it: I decays away
+    PIDIO release;
+    for (int i = 0; i < 3000; i++) {
+        for (int axis = 0; axis < 4; axis++) {
+            release[axis].push_back(0);
+        }
     }
-    // The same for any axis: all sticks at 0.8 once the lag has passed (roll from the
-    // start), and this axis's gyro steady at gyroScale x its setpoint
-    pidAxisData_t axisAfterSnap(int gyroAxis, uint8_t strength, int lagMs, float gyroScale)
-    {
-        mockPidProfile->pid_mode = 1;
-        for (int axis = 0; axis < 3; axis++) {
-            mockPidProfile->pid[axis].P = 50;
-            mockPidProfile->pid[axis].I = 50;
-            mockPidProfile->pid[axis].D = 0;
-            mockPidProfile->pid[axis].F = 0;
-            mockPidProfile->pid[axis].B = 0;
-        }
-        snapRelaxConfigsMutable(0)->strength = strength;
-        pidInit(mockPidProfile);
-
-        gyro.gyroADCf[gyroAxis] = 0.8f * 360 * (gyroAxis == 2 ? -1 : 1) * gyroScale;
-
-        PIDIO input;
-        for (int i = 0; i < lagMs + 200; i++) {
-            input[0].push_back(0.8f);
-            input[1].push_back(i >= lagMs ? 0.8f : 0);
-            input[2].push_back(i >= lagMs ? 0.8f : 0);
-            input[3].push_back(0);
-        }
-        getResponse(input);
-        return pidGetAxisData()[gyroAxis];
-    }
-};
-
-TEST_F(PIDSnapRelaxTest, OverspeedNotFoughtAfterSnap)
-{
-    // Airframe rolling at twice the commanded rate: P and I push back unless relaxed
-    const pidAxisData_t off = rollAfterSnap(0, 0, 2.0f);
-    EXPECT_LT(off.P, 0);
-    EXPECT_LT(off.axisError, 0);
-
-    const pidAxisData_t on = rollAfterSnap(100, 0, 2.0f);
-    EXPECT_FLOAT_EQ(on.P, 0);
-    EXPECT_FLOAT_EQ(on.axisError, 0);
-}
-
-TEST_F(PIDSnapRelaxTest, HelpingFeedbackKept)
-{
-    // Airframe slower than commanded: feedback adds to the stick, so it is left alone
-    const pidAxisData_t off = rollAfterSnap(0, 0, 0.5f);
-    const pidAxisData_t on = rollAfterSnap(100, 0, 0.5f);
-    EXPECT_GT(off.P, 0);
-    EXPECT_FLOAT_EQ(on.P, off.P);
-    EXPECT_FLOAT_EQ(on.axisError, off.axisError);
-}
-
-TEST_F(PIDSnapRelaxTest, YawOverspeedNotFought)
-{
-    // Airframe out-yawing the rudder stick: yaw feedback pushes back unless relaxed. The yaw
-    // setpoint has the opposite sign to the stick, so this also checks the snap direction.
-    const pidAxisData_t off = axisAfterSnap(2, 0, 0, 2.0f);
-    EXPECT_GT(off.P, 0);
-
-    const pidAxisData_t on = axisAfterSnap(2, 100, 0, 2.0f);
-    EXPECT_FLOAT_EQ(on.P, 0);
-    EXPECT_FLOAT_EQ(on.axisError, 0);
-}
-
-TEST_F(PIDSnapRelaxTest, YawHelpingFeedbackKept)
-{
-    // Yaw lagging the stick, as in most logged snaps: feedback adds rudder and is left alone
-    const pidAxisData_t off = axisAfterSnap(2, 0, 0, 0.5f);
-    const pidAxisData_t on = axisAfterSnap(2, 100, 0, 0.5f);
-    EXPECT_LT(off.P, 0);
-    EXPECT_FLOAT_EQ(on.P, off.P);
-    EXPECT_FLOAT_EQ(on.axisError, off.axisError);
-}
-
-TEST_F(PIDSnapRelaxTest, PartialStrength)
-{
-    const pidAxisData_t off = rollAfterSnap(0, 0, 2.0f);
-    const pidAxisData_t half = rollAfterSnap(50, 0, 2.0f);
-    EXPECT_NEAR(half.P, off.P * 0.5f, fabsf(off.P) * 1e-3f);
-}
-
-TEST_F(PIDSnapRelaxTest, SlowBuildUpIsNotASnap)
-{
-    // Pitch and yaw arriving 600 ms after roll is outside the default 400 ms window
-    const pidAxisData_t off = rollAfterSnap(0, 600, 2.0f);
-    const pidAxisData_t on = rollAfterSnap(100, 600, 2.0f);
-    EXPECT_LT(on.P, 0);
-    EXPECT_FLOAT_EQ(on.P, off.P);
-}
-
-TEST_F(PIDSnapRelaxTest, StaggeredInputInsideWindowIsASnap)
-{
-    const pidAxisData_t on = rollAfterSnap(100, 250, 2.0f);
-    EXPECT_FLOAT_EQ(on.P, 0);
-}
-
-class PIDPropHangTest : public PIDTestBase {
-  public:
-    void TearDown() override
-    {
-        for (int axis = 0; axis < 3; axis++) {
-            gyro.gyroADCf[axis] = 0;
-        }
-        rMat[2][0] = 0;
-        mockVario = 0;
-        mockHasAltitude = true;
-        DISABLE_FLIGHT_MODE(ANGLE_MODE);
-        PIDTestBase::TearDown();
-    }
-    // Sticks centred for 2 s with the airframe torque-rolling at 100 deg/s (and pitching at
-    // 50 deg/s), nose-up component noseUp and vertical speed vario. Returns the roll and pitch
-    // axis data at the end.
-    std::array<pidAxisData_t, 2> afterHang(uint8_t strength, float noseUp, float vario)
-    {
-        mockPidProfile->pid_mode = 1;
-        for (int axis = 0; axis < 3; axis++) {
-            mockPidProfile->pid[axis].P = 50;
-            mockPidProfile->pid[axis].I = 50;
-            mockPidProfile->pid[axis].D = 0;
-            mockPidProfile->pid[axis].F = 0;
-            mockPidProfile->pid[axis].B = 0;
-        }
-        propHangConfigsMutable(0)->strength = strength;
-        pidInit(mockPidProfile);
-
-        rMat[2][0] = noseUp;
-        mockVario = vario;
-        gyro.gyroADCf[0] = -100;
-        gyro.gyroADCf[1] = -50;
-
-        PIDIO input;
-        for (int i = 0; i < 2000; i++) {
-            for (int axis = 0; axis < 4; axis++) {
-                input[axis].push_back(0);
-            }
-        }
-        getResponse(input);
-        return { pidGetAxisData()[0], pidGetAxisData()[1] };
-    }
-};
-
-TEST_F(PIDPropHangTest, HangReleasesRollI)
-{
-    // Off, roll I builds to hold the airframe against the torque
-    const float off = afterHang(0, 1.0f, 0)[0].axisError;
-    EXPECT_GT(off, 10);
-
-    // On, roll I is held back and bled off once the hang is detected
-    const float on = afterHang(100, 1.0f, 0)[0].axisError;
-    EXPECT_LT(fabsf(on), off * 0.1f);
-}
-
-TEST_F(PIDPropHangTest, UpLineIsNotAHang)
-{
-    // Nose just as vertical but climbing at 10 m/s
-    const float off = afterHang(0, 1.0f, 10.0f)[0].axisError;
-    const float on = afterHang(100, 1.0f, 10.0f)[0].axisError;
-    EXPECT_FLOAT_EQ(on, off);
-}
-
-TEST_F(PIDPropHangTest, NoseOutsideAngleIsNotAHang)
-{
-    // 45 deg from vertical, beyond the default 20 deg
-    const float off = afterHang(0, 0.707f, 0)[0].axisError;
-    const float on = afterHang(100, 0.707f, 0)[0].axisError;
-    EXPECT_FLOAT_EQ(on, off);
-}
-
-TEST_F(PIDPropHangTest, NeedsAltitudeEstimate)
-{
-    // Without one an up-line can't be told from a hang
-    mockHasAltitude = false;
-    const float off = afterHang(0, 1.0f, 0)[0].axisError;
-    const float on = afterHang(100, 1.0f, 0)[0].axisError;
-    EXPECT_FLOAT_EQ(on, off);
-}
-
-TEST_F(PIDPropHangTest, NotInAngleMode)
-{
-    ENABLE_FLIGHT_MODE(ANGLE_MODE);
-    const float off = afterHang(0, 1.0f, 0)[0].axisError;
-    const float on = afterHang(100, 1.0f, 0)[0].axisError;
-    EXPECT_FLOAT_EQ(on, off);
-}
-
-TEST_F(PIDPropHangTest, RollOnly)
-{
-    // Pitch I is untouched while hanging
-    const float off = afterHang(0, 1.0f, 0)[1].axisError;
-    const float on = afterHang(100, 1.0f, 0)[1].axisError;
-    EXPECT_GT(off, 10);
-    EXPECT_FLOAT_EQ(on, off);
+    getResponse(release);
+    EXPECT_LT(fabsf(pidGetAxisData()[PID_YAW].axisError), built * 0.1f);
 }

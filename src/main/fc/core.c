@@ -61,8 +61,6 @@
 #include "fc/stats.h"
 
 #include "flight/failsafe.h"
-#include "flight/gps_rescue.h"
-#include "flight/gps_nav.h"
 #include "flight/wiggle.h"
 
 #if defined(USE_DYN_NOTCH_FILTER)
@@ -70,19 +68,11 @@
 #endif
 
 #include "flight/pid.h"
-#include "flight/tv_hold.h"
-#include "flight/tv_pid.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
-#include "flight/pid.h"
-#include "flight/trainer.h"
-#include "flight/atthold.h"
-#include "flight/autotrim.h"
 #include "flight/position.h"
 #include "flight/rpm_filter.h"
 #include "flight/servos.h"
-#include "flight/trim_monitor.h"
-#include "flight/tune_advisor.h"
 
 #include "io/beeper.h"
 #include "io/gps.h"
@@ -92,7 +82,6 @@
 
 #include "msp/msp_serial.h"
 
-#include "pg/governor.h"
 #include "pg/arming.h"
 #include "pg/motor.h"
 #include "pg/pg.h"
@@ -212,10 +201,10 @@ static void updateAirborneRearmEligibility(timeUs_t currentTimeUs, bool inFlight
         return;
     }
 
-    // Track the in-flight latch rather than set-once: when the governor-off heuristic
-    // below declares the flight over, the grace must not be granted at the following
-    // disarm, or the throttle, attitude and governor-switch arming checks are skipped
-    // for a re-arm on the ground.
+    // Only a disarm while the car was running (the INFLIGHT latch, see processRxModes()) and
+    // after rearm_min_armed_seconds earns the grace: a re-arm during it skips the throttle and
+    // attitude arming checks, so the car can be re-armed while still moving after an
+    // accidental disarm.
     const timeDelta_t armedTimeUs = cmpTimeUs(currentTimeUs, armStartedAtUs);
     airborneRearmEligible = inFlightLatched &&
         armedTimeUs >= (timeDelta_t)armingConfig()->rearm_min_armed_seconds * 1000000;
@@ -256,19 +245,8 @@ static bool accNeedsCalibration(void)
         // yet been calibrated. Check to see if anything is using the
         // ACC that would be affected by the lack of calibration.
 
-        // Check for any configured modes that use the ACC
-        if (isModeActivationConditionPresent(BOXANGLE) ||
-            isModeActivationConditionPresent(BOXTRAINER) ||
-            isModeActivationConditionPresent(BOXGPSRESCUE)) {
-            return true;
-        }
-
-#ifdef USE_GPS_RESCUE
-        // Check if failsafe will use GPS Rescue
-        if (failsafeConfig()->failsafe_procedure == FAILSAFE_PROCEDURE_GPS_RESCUE) {
-            return true;
-        }
-#endif
+        // Nothing configurable depends on the ACC any more
+        return false;
 #endif
     }
 
@@ -329,18 +307,6 @@ void updateArmingStatus(void)
             unsetArmingDisabled(ARMING_DISABLED_THROTTLE);
         }
 
-        // An engaged governor switch takes the motor to idle (or the RPM_RANGE
-        // minimum) the moment the model arms, whatever the stick says. Its
-        // switch is the motor interlock, so require it off to arm, like the
-        // throttle check above.
-        if (governorConfig()->governor_mode != GOVERNOR_MODE_OFF &&
-            isModeActivationConditionPresent(BOXGOVERNOR) &&
-            IS_RC_MODE_ACTIVE(BOXGOVERNOR) && !allowAirborneRearm) {
-            setArmingDisabled(ARMING_DISABLED_GOVERNOR);
-        } else {
-            unsetArmingDisabled(ARMING_DISABLED_GOVERNOR);
-        }
-
         if (!isAttitudeEstimateReady() && !allowAirborneRearm) {
             setArmingDisabled(ARMING_DISABLED_ANGLE);
         } else {
@@ -373,33 +339,10 @@ void updateArmingStatus(void)
             }
         }
 
-#ifdef USE_GPS_RESCUE
-        // gpsRescueIsConfigured() only catches the failsafe-procedure trigger
-        // (failsafe_procedure == FAILSAFE_PROCEDURE_GPS_RESCUE). BOXGPSRESCUE, the redundant
-        // switch alias for BOXRTH, has been retired -- treat BOXRTH being mapped the same as
-        // gpsRescueIsConfigured() so a craft wired with BOXRTH (the natural fixed-wing choice)
-        // still gets prearm GPS-fix protection.
-        if (gpsRescueIsConfigured() || isModeActivationConditionPresent(BOXRTH)) {
-            if (gpsRescueConfig()->allowArmingWithoutFix || STATE(GPS_FIX) || ARMING_FLAG(WAS_EVER_ARMED)) {
-                unsetArmingDisabled(ARMING_DISABLED_GPS);
-            } else {
-                setArmingDisabled(ARMING_DISABLED_GPS);
-            }
-        }
-        // Never arm straight into a GPS nav mode. LOITER is covered as well as RTH: both take
-        // over the throttle (nav_throttle) once airborne, and neither is something to take off in.
-        if (IS_RC_MODE_ACTIVE(BOXRTH) || IS_RC_MODE_ACTIVE(BOXLOITER)) {
-            setArmingDisabled(ARMING_DISABLED_RESC);
-        } else {
-            unsetArmingDisabled(ARMING_DISABLED_RESC);
-        }
-#endif
-
 #ifdef USE_RX_INPUT_BACKUP
         // Every configured backup RX must prove itself linked before the first arm of
-        // this power cycle - same "don't trust it until it's shown you a signal"
-        // reasoning as the GPS-rescue fix check above, and the same exception once
-        // WAS_EVER_ARMED: a backup that blips stale between flights (satellite hiccup,
+        // this power cycle - "don't trust it until it's shown you a signal" - with an
+        // exception once WAS_EVER_ARMED: a backup that blips stale between flights (satellite hiccup,
         // momentary interference) must not lock out rearming for the rest of the
         // session, only the very first arm while the backup's health is still
         // completely unknown. With two backups both have to link: a dead second
@@ -629,8 +572,8 @@ void tryArm(void)
         lastArmingDisabledReason = 0;
 
 #ifdef USE_GPS
-        // An in-flight re-arm inside rearm_grace_seconds keeps the home it took off from;
-        // re-capturing here would move home to wherever the aircraft is now.
+        // A re-arm inside rearm_grace_seconds keeps the home it started from;
+        // re-capturing here would move home to wherever the car is now.
         if (!(inFlightRearm && STATE(GPS_FIX_HOME))) {
             GPS_reset_home_position();
         }
@@ -646,6 +589,7 @@ void tryArm(void)
             beeper(BEEPER_ARMING);
         }
 #else
+        UNUSED(inFlightRearm);
         beeper(BEEPER_ARMING);
 #endif
 
@@ -700,13 +644,7 @@ void processRxModes(timeUs_t currentTimeUs)
     // board after delay so users without buzzer won't lose fingers.
     // mixTable constrains motor commands, so checking  throttleStatus is enough
     const timeUs_t autoDisarmDelayUs = armingConfig()->auto_disarm_delay * 1e6;
-    if (ARMING_FLAG(ARMED)
-        // Disable auto-disarm-on-low-throttle while any GPS return-to-home is active (pilot- or
-        // failsafe-triggered): GPS_RESCUE_MODE is never set on this fork (see the USE_GPS_RESCUE
-        // block above), RTH_MODE is what BOXRTH/a GPS-rescue failsafe procedure actually set.
-        // Left checking GPS_RESCUE_MODE too in case that ever changes.
-        && !FLIGHT_MODE(GPS_RESCUE_MODE | RTH_MODE)
-    ) {
+    if (ARMING_FLAG(ARMED)) {
         if (isUsingSticksForArming()) {
             if (throttleOff) {
                 if ((autoDisarmDelayUs > 0) && (cmpTimeUs(currentTimeUs, disarmAt) > 0)) {
@@ -719,7 +657,7 @@ void processRxModes(timeUs_t currentTimeUs)
                     armedBeeperOn = true;
                 }
             } else {
-                // throttle is not low - extend disarm time
+                // throttle is not at neutral - extend disarm time
                 disarmAt = currentTimeUs + autoDisarmDelayUs;
 
                 if (armedBeeperOn) {
@@ -728,7 +666,7 @@ void processRxModes(timeUs_t currentTimeUs)
                 }
             }
         } else {
-            // arming is via AUX switch; beep while throttle low
+            // arming is via AUX switch; beep while throttle at neutral
             if (throttleOff) {
                 beeper(BEEPER_ARMED);
                 armedBeeperOn = true;
@@ -751,195 +689,30 @@ void processRxModes(timeUs_t currentTimeUs)
         DISABLE_FLIGHT_MODE(PASSTHROUGH_MODE);
     }
 
-    if (IS_RC_MODE_ACTIVE(BOXMANUAL)) {
-        ENABLE_FLIGHT_MODE(MANUAL_MODE);
-    } else {
-        DISABLE_FLIGHT_MODE(MANUAL_MODE);
-    }
-
-    if (IS_RC_MODE_ACTIVE(BOXTRADITIONAL)) {
-        ENABLE_FLIGHT_MODE(TRADITIONAL_MODE);
-    } else {
-        DISABLE_FLIGHT_MODE(TRADITIONAL_MODE);
-    }
-
-#ifdef USE_SERVOS
-    if (IS_RC_MODE_ACTIVE(BOXAUTOTRIM)) {
-        ENABLE_FLIGHT_MODE(AUTOTRIM_MODE);
-    } else {
-        DISABLE_FLIGHT_MODE(AUTOTRIM_MODE);
-    }
-#endif // USE_SERVOS
-
     if (!cliMode) {
         processRcAdjustments();
     }
 
-    if (sensors(SENSOR_ACC)) {
-#ifdef USE_GPS_RESCUE
-        // GPS_RESCUE_MODE is never used on a wing: BOXRTH drives the fixed-wing RTH_MODE /
-        // navRthStart() path (below, USE_GPS_NAV block), and a failsafe_procedure of
-        // FAILSAFE_PROCEDURE_GPS_RESCUE is handled inside failsafe.c via that same RTH_MODE path.
-        // The multirotor rescue controller it used to drive has been removed. The flag (and its
-        // bit) stays for telemetry and Blackbox compatibility, so keep it cleared here in case
-        // anything ever sets it by mistake.
-        DISABLE_FLIGHT_MODE(GPS_RESCUE_MODE);
-#endif
-
-#ifdef USE_GPS_NAV
-        {
-            static bool wasRthActive = false;
-            static bool wasLoiterActive = false;
-
-            // Start nav on the switch's off->on edge, and also whenever the mode is
-            // on but nav is not running: failsafe recovery calls navStop() while the
-            // switch is still held, and nothing else would restart it.
-            //
-            // Not on a GPS that can't navigate (gpsProviderSupportsNav()): nav would never get
-            // a position, but the mode flag alone makes the mixer fly nav_throttle, so the
-            // switch would take the throttle away and steer nowhere. The pilot keeps control.
-            if (ARMING_FLAG(ARMED) && IS_RC_MODE_ACTIVE(BOXRTH) && gpsProviderSupportsNav()) {
-                if (!wasRthActive || !navIsActive()) {
-                    navRthStart();
-                }
-                ENABLE_FLIGHT_MODE(RTH_MODE);
-                wasRthActive = true;
-            }
-#ifdef USE_GPS_RESCUE
-            else if (failsafeIsActive() && failsafePhase() == FAILSAFE_GPS_RESCUE) {
-                // A failsafe-triggered GPS rescue owns RTH_MODE/nav state for the duration of
-                // its own phase (see failsafe.c) -- leave it alone here. This task
-                // (processRxModes, via TASK_RX) and failsafeUpdateState() (the 10ms scheduler
-                // path) are independently scheduled with no guaranteed ordering between them, so
-                // without this, this block would otherwise clobber RTH_MODE back off (and, via
-                // the navStop() call below, stop the rescue's own nav) on every cycle where the
-                // pilot's BOXRTH switch isn't itself engaged -- the normal case during a real
-                // signal loss, where IS_RC_MODE_ACTIVE() above is just reading whatever the aux
-                // channel's RX-fallback/held value happens to be, not pilot intent.
-            }
-#endif
-            else {
-                DISABLE_FLIGHT_MODE(RTH_MODE);
-                wasRthActive = false;
-            }
-
-            if (ARMING_FLAG(ARMED) && IS_RC_MODE_ACTIVE(BOXLOITER) && !FLIGHT_MODE(RTH_MODE) && gpsProviderSupportsNav()) {
-                if (!wasLoiterActive || !navIsActive()) {
-                    navLoiterStart();
-                }
-                ENABLE_FLIGHT_MODE(LOITER_MODE);
-                wasLoiterActive = true;
-            } else {
-                DISABLE_FLIGHT_MODE(LOITER_MODE);
-                wasLoiterActive = false;
-            }
-
-            if (!FLIGHT_MODE(RTH_MODE) && !FLIGHT_MODE(LOITER_MODE)) {
-                navStop();
-            }
-        }
-#endif
-
-        if (IS_RC_MODE_ACTIVE(BOXATTHOLD)) {
-            DISABLE_FLIGHT_MODE(ANGLE_MODE);
-            DISABLE_FLIGHT_MODE(TRAINER_MODE);
-            ENABLE_FLIGHT_MODE(ATTHOLD_MODE);
-        }
-        else if (IS_RC_MODE_ACTIVE(BOXANGLE)) {
-            ENABLE_FLIGHT_MODE(ANGLE_MODE);
-            DISABLE_FLIGHT_MODE(TRAINER_MODE);
-            DISABLE_FLIGHT_MODE(ATTHOLD_MODE);
-        }
-#ifdef USE_ACRO_TRAINER
-        else if (IS_RC_MODE_ACTIVE(BOXTRAINER)) {
-            DISABLE_FLIGHT_MODE(ANGLE_MODE);
-            ENABLE_FLIGHT_MODE(TRAINER_MODE);
-            DISABLE_FLIGHT_MODE(ATTHOLD_MODE);
-        }
-#endif
-        else {
-            DISABLE_FLIGHT_MODE(ANGLE_MODE);
-            DISABLE_FLIGHT_MODE(TRAINER_MODE);
-            DISABLE_FLIGHT_MODE(ATTHOLD_MODE);
-        }
-    }
-
     {
-        // Telemetry-facing "are we actually flying" latch -- see INFLIGHT_MODE comment.
-        static bool inFlightLatched = false;
-        static bool governorUsedThisFlight = false;
-        static bool haveGroundAltitude = false;
-        static float groundAltitude = 0.0f;
-
-        const bool governorActive = IS_RC_MODE_ACTIVE(BOXGOVERNOR);
-        const bool altitudeAvailable = sensors(SENSOR_BARO) || (sensors(SENSOR_GPS) && STATE(GPS_FIX));
+        // Telemetry-facing "the car is running" latch -- see INFLIGHT_MODE. Set once armed and
+        // the throttle has clearly left neutral (either direction), held through stops so it
+        // does not flicker, cleared on disarm.
+        static bool runningLatched = false;
 
         if (!ARMING_FLAG(ARMED)) {
-            inFlightLatched = false;
-            governorUsedThisFlight = false;
-            haveGroundAltitude = false;
-        } else {
-            if (governorActive) {
-                governorUsedThisFlight = true;
-            }
-
-            if (!inFlightLatched) {
-                // Capture the launch-site altitude baseline once, as soon as a source is available
-                // after arming -- not necessarily on the very first tick (GPS fix can take a moment).
-                if (altitudeAvailable && !haveGroundAltitude) {
-                    groundAltitude = getAltitude();
-                    haveGroundAltitude = true;
-                }
-
-                // Covers takeoffs gentle enough to never cross the throttle threshold (e.g. a
-                // glider-style launch) on setups with a baro or GPS fix but no governor switch configured.
-                const bool altitudeGain = haveGroundAltitude && (getAltitude() - groundAltitude) > 3.0f;
-
-                if (governorActive || getThrottle() > 0.35f || altitudeGain) {
-                    inFlightLatched = true;
-                }
-            } else if (governorUsedThisFlight && !governorActive &&
-                       getThrottle() < (governorConfig()->governor_handover / 100.0f)) {
-                // The governor switch was relied on this flight and has just been switched off
-                // with throttle back at idle -- read as the pilot signalling "landed and done", not
-                // a mid-flight dip. Ends the flight without waiting for disarm (which some pilots
-                // delay while taxiing back).
-                inFlightLatched = false;
-                governorUsedThisFlight = false;
-                haveGroundAltitude = false;
-            }
+            runningLatched = false;
+        } else if (fabsf(getThrottle()) > 0.1f) {
+            runningLatched = true;
         }
 
-        updateAirborneRearmEligibility(currentTimeUs, inFlightLatched);
+        updateAirborneRearmEligibility(currentTimeUs, runningLatched);
 
-        if (inFlightLatched) {
+        if (runningLatched) {
             ENABLE_FLIGHT_MODE(INFLIGHT_MODE);
         } else {
             DISABLE_FLIGHT_MODE(INFLIGHT_MODE);
         }
     }
-
-#ifdef USE_ACRO_TRAINER
-    acroTrainerSetState(FLIGHT_MODE(TRAINER_MODE));
-#endif // USE_ACRO_TRAINER
-#ifdef USE_ACC
-    // GPS rescue/failsafe/RTH/loiter take priority over ATTHOLD for the actual setpoint
-    // (see pidApplySetpoint's angleModeApply branch in pid.c), but ATTHOLD_MODE's
-    // flightModeFlags bit stays set the whole time it's preempted -- the box-selection chain above
-    // only clears it when a different BOX switch position is chosen, not when a safety mode merely
-    // takes priority. Left unguarded, attHoldSetState would see the mode as
-    // continuously active and never re-capture a fresh target, so once the safety mode clears and
-    // priority falls back to the hold, it resumes whatever attitude target was captured before the
-    // preemption instead of the aircraft's current attitude. Mirrors pid.c's own priority mask.
-    // PASSTHROUGH and MANUAL bypass the hold's output the same way: the surfaces follow the
-    // sticks, the attitude drifts, and the frozen target goes stale. Disengage while bypassed so
-    // the release re-captures the current attitude instead of slewing back at max_rate.
-    const bool safetyLevelingActive = FLIGHT_MODE(ANGLE_MODE | GPS_RESCUE_MODE | FAILSAFE_MODE | LOITER_MODE | RTH_MODE);
-    attHoldSetState(FLIGHT_MODE(ATTHOLD_MODE) && !safetyLevelingActive && !mixerStabilizationBypassed());
-#endif // USE_ACC
-#ifdef USE_SERVOS
-    autoTrimUpdate();
-#endif // USE_SERVOS
 
     if (!IS_RC_MODE_ACTIVE(BOXPREARM) && ARMING_FLAG(WAS_ARMED_WITH_PREARM)) {
         DISABLE_ARMING_FLAG(WAS_ARMED_WITH_PREARM);
@@ -1011,39 +784,6 @@ static void subTaskPidController(timeUs_t currentTimeUs)
     }
 
     pidController(currentPidProfile, currentTimeUs);
-
-    // Independent Thrust Vector loop -- must run after pidController() above so
-    // it can reuse this tick's final main-loop setpoint via pidGetSetpoint().
-    // BOXTHRUSTVECTOR gates the mix live in flight; reset (rather than just skip)
-    // while switched off so I-term doesn't silently wind up unseen and bump the output on
-    // re-engage -- it ramps back up from zero instead. Also reset on gyro
-    // overflow, mirroring pidController()'s own pidReset() above -- the TV
-    // loop reads gyro.gyroADCf directly and must not keep integrating on
-    // corrupted samples while the main axes have already zeroed out.
-    if (IS_RC_MODE_ACTIVE(BOXTHRUSTVECTOR) && !gyroOverflowDetected()) {
-        // BOXTVHOLD: independent attitude/heading hold for this loop only, decoupled
-        // from the main loop's ANGLE/ATTHOLD chain -- see flight/tv_hold.c.
-        // Not engaged while a safety mode has priority (tvPidApplyAxis skips the hold
-        // then -- same mask as attHoldSetState's below/above): leaving it "engaged" but
-        // unapplied would let the target go stale, and the nozzle would head back to the
-        // pre-safety-mode attitude once the safety mode cleared instead of re-capturing.
-        // PASSTHROUGH zeroes the TV mixer inputs (same condition as tv_pid.c's I hold), so the
-        // nozzle is not following the hold: disengage so the release re-captures.
-        const bool tvSafetyLevelingActive = FLIGHT_MODE(ANGLE_MODE | GPS_RESCUE_MODE | FAILSAFE_MODE | LOITER_MODE | RTH_MODE);
-        const bool tvBypassed = mixerStabilizationBypassed() && IS_RC_MODE_ACTIVE(BOXPASSTHROUGH);
-        tvHoldSetState(IS_RC_MODE_ACTIVE(BOXTVHOLD) && !tvSafetyLevelingActive && !tvBypassed);
-        tvPidController(currentTimeUs);
-    } else {
-        tvHoldSetState(false);
-        tvPidReset();
-    }
-
-#ifdef USE_TUNE_ADVISOR
-    tuneAdvisorUpdate(pidGetDT());
-#endif
-#ifdef USE_SERVOS
-    trimMonitorUpdate(pidGetDT());
-#endif
 }
 
 static void subTaskMixerUpdate(timeUs_t currentTimeUs)

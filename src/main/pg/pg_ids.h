@@ -78,10 +78,10 @@
 #define PG_SERVO_CONFIG 52
 #define PG_IBUS_TELEMETRY_CONFIG 53 // CF 1.x
 //#define PG_VTX_CONFIG 54 // CF 1.x
-#define PG_GPS_RESCUE 55 // struct OK
+// 55 reserved (was PG_GPS_RESCUE, removed), do not reuse
 #define PG_POSITION 56
 //#define PG_VTX_IO_CONFIG 57 removed (VTX)
-#define PG_GPS_NAV 58
+// 58 reserved (was PG_GPS_NAV, removed), do not reuse
 
 // Driver configuration
 #define PG_DRIVER_PWM_RX_CONFIG 100 // does not exist in betaflight
@@ -167,20 +167,18 @@
 #define PG_DRIVER_SPORT_MASTER_CONFIG 1008
 #define PG_GENERIC_MIXER_CURVES      1009
 #define PG_GENERIC_LOGIC_CONDITIONS  1010
-#define PG_GOVERNOR_CONFIG           1011
+// 1011 reserved (was PG_GOVERNOR_CONFIG, removed), do not reuse
 #define PG_GAIN_CURVES               1012
-#define PG_THRUST_VECTOR_PROFILE     1013
+// 1013 reserved (was PG_THRUST_VECTOR_PROFILE, removed), do not reuse
 #define PG_SRXL2_ESC_CONFIG          1014
 #define PG_DRIVER_RX_INPUT_BACKUP_CONFIG 1015
 // 1016 was PG_BUS_SERVO_CONFIG (bus_servo_clone_pwm), do not reuse
 #define PG_SERVO_CURVES              1017
 // Appended after master's ids: renumbering the existing ones would change stored configs.
 #define PG_DRIVER_CRSF_SENSORS_CONFIG 1018
-#define PG_ATTITUDE_LIMITS           1019
+// 1019 reserved (was PG_ATTITUDE_LIMITS, removed), do not reuse
 #define PG_FW_SPA_CONFIG             1020
-#define PG_LEVEL_CONFIG              1021
-#define PG_SNAP_RELAX_CONFIG         1022
-#define PG_PROP_HANG_CONFIG          1023
+// 1021-1023 reserved (were PG_LEVEL_CONFIG, PG_SNAP_RELAX_CONFIG, PG_PROP_HANG_CONFIG, removed), do not reuse
 #define PG_SERVO_TRIMS               1024
 #define PG_FBUS_MUX_FPGA_CONFIG      1025
 // 1026 is taken by PG_REVERSE_FLIGHT_CONFIG on an open branch (feature/4d)

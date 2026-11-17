@@ -8,8 +8,13 @@ launch control. It is a fork of WingFlight (a fixed-wing fork of Rotorflight, it
 Current state (November 2026): the fork has just been taken. The code is still WingFlight's fixed-wing code,
 rebranded. The car conversion is in progress, so:
 
-- Expect aircraft concepts (flight modes, control surfaces, `WINGFLIGHT_AIRPLANE`, GPS rescue, thrust vectoring)
-  that are due to be removed or replaced by car equivalents. Don't extend them; ask before deleting them.
+- The aircraft-only features (ANGLE/leveling, acro trainer, ATT HOLD, GPS rescue/nav, thrust vectoring, governor,
+  auto trim, trim monitor, tune advisor, airborne detection, snap/prop-hang/cross-axis relax, MANUAL and TRADITIONAL
+  modes) have been removed. Their mode, adjustment, PG, debug and MSP ids are kept as reserved so later ids don't
+  move. Only yaw (steering) is stabilised; roll and pitch keep their slots in the per-axis arrays and PID/rate
+  profiles but always hold zero. Throttle is signed, -1..1 around rc_center (brake/reverse below neutral).
+- Remaining aircraft concepts (control-surface mixer defaults, `WINGFLIGHT_AIRPLANE`) are due to be replaced by
+  car equivalents. Don't extend them; ask before deleting them.
 - Car features are added under `src/main/flight/` (the directory name is inherited) until a reorganisation is agreed.
 - WingFlight fixes can be pulled in from the `upstream` remote (`WingFlight/wingflight-firmware`); keep diffs to
   inherited code small to make that easy.
@@ -65,10 +70,10 @@ Also:
 
 Reference: [src/main/pg/mixer.c](src/main/pg/mixer.c)
 
-### 3) Passthrough Flight Mode Exists for Wing Workflows
+### 3) GYRO OFF Mode
 
-- `BOXPASSTHROUGH` is an exposed mode.
-- When active, stabilized roll/pitch/yaw mixer inputs are replaced by raw RC channel inputs.
+- `BOXPASSTHROUGH` is exposed as "GYRO OFF" (permanent id 12).
+- When active, the stabilized yaw (steering) mixer input is replaced by the raw RC yaw channel; no gyro.
 - Throttle path remains direct.
 
 References:
@@ -77,25 +82,10 @@ References:
 - [src/main/msp/msp_box.c](src/main/msp/msp_box.c)
 - [src/main/flight/mixer.c](src/main/flight/mixer.c)
 
-### 4) New Attitude-Hold Mode (ATTHOLD)
+### 4) PID Path
 
-- `BOXATTHOLD` is available and mapped to flight mode flags.
-- ATTHOLD logic tracks current attitude per axis when pilot input exceeds deadband, then applies correction when sticks return near center.
-- Mode behavior uses airborne state to avoid applying hold logic before flight.
-
-References:
-
-- [src/main/fc/rc_modes.h](src/main/fc/rc_modes.h)
-- [src/main/fc/runtime_config.h](src/main/fc/runtime_config.h)
-- [src/main/flight/atthold.c](src/main/flight/atthold.c)
-- [src/main/flight/pid.c](src/main/flight/pid.c)
-- [src/main/pg/pid.h](src/main/pg/pid.h)
-- [src/main/pg/pid.c](src/main/pg/pid.c)
-
-### 5) PID Path Reflects Fixed-Wing Dynamics
-
-- PID mode `1` is implemented as fixed-wing rate PID.
-- A throttle-based gain attenuation path (`fw_tpa_gain` / `fw_tpa_curve`) is used for control-surface authority management, mirroring `master_gain`/`gain_curve`: a baseline scale further shaped by an optional curve from the same shared gain-curve pool/evaluator.
+- PID mode `1` is a rate PID, run on yaw only.
+- A throttle-based gain attenuation path (`fw_tpa_gain` / `fw_tpa_curve`, on |throttle|) mirrors `master_gain`/`gain_curve`: a baseline scale further shaped by an optional curve from the same shared gain-curve pool/evaluator.
 - I-term decay naming and behavior have been adjusted for fixed-wing semantics (`iterm_decay_*`, no cyclic naming).
 
 References:
@@ -104,7 +94,7 @@ References:
 - [src/main/pg/pid.h](src/main/pg/pid.h)
 - [Changes.md](Changes.md)
 
-### 6) Heli-Specific Slots Are Pruned but ID Compatibility Is Preserved
+### 5) Heli-Specific Slots Are Pruned but ID Compatibility Is Preserved
 
 - Some helicopter-specific boxes/flags remain as reserved placeholders to avoid ID renumbering and protocol breakage.
 
@@ -184,9 +174,8 @@ Feature branch dev builds embed `FC_VER_SUFFIX` from the `feature/<name>` branch
 the workflow fail with `fc_version_string_too_long`. This is a real compile failure, not a superseded run; either
 keep feature branch names short or update `.github/workflows/dev-build.yml` to truncate the generated suffix.
 
-Unit tests exist for PID, setpoint, curves, maths and the acro trainer. The hold engine, ATTHOLD,
-the thrust-vector loop, leveling, airborne detection, servos and GPS navigation have none, so changes there
-need extra care and, where possible, a new test.
+Unit tests exist for PID, setpoint, curves, maths, speed attenuation, servos and telemetry status. The mixer,
+failsafe and fc/core.c arming paths have none, so changes there need extra care and, where possible, a new test.
 
 ## Before Changing Flight-Control Code
 
@@ -212,7 +201,7 @@ Maintainers and users read these, so keep them short and precise. No filler, no 
 
 **Pull requests**
 
-- Title: imperative, under ~70 characters (e.g. "Fix ATTHOLD drift after stick release").
+- Title: imperative, under ~70 characters (e.g. "Fix steering I-term windup in GYRO OFF").
 - Body, a few lines each:
   - **What**: the change and why it is needed. Link the issue (`Fixes #123`).
   - **Compatibility**: MSP, CLI or setting changes, and whether the Configurator or gripora-docs need updating.

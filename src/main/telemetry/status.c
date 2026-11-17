@@ -35,19 +35,11 @@
 #include "fc/rc_modes.h"
 #include "fc/runtime_config.h"
 
-#include "flight/airborne.h"
-#include "flight/atthold.h"
-#include "flight/autotrim.h"
 #include "flight/failsafe.h"
-#include "flight/gps_nav.h"
-#include "flight/gps_rescue.h"
 #include "flight/logic_condition.h"
 #include "flight/mixer.h"
 #include "flight/motors.h"
 #include "flight/servos.h"
-#include "flight/trainer.h"
-#include "flight/trim_monitor.h"
-#include "flight/tv_hold.h"
 
 #include "io/beeper.h"
 #include "io/gps.h"
@@ -74,43 +66,6 @@ static telemetryGpsFix_e gpsFix(void)
 {
     return STATE(GPS_FIX_HOME) ? TELEM_GPS_FIX_HOME :
         (STATE(GPS_FIX) ? TELEM_GPS_FIX_OK : TELEM_GPS_FIX_NONE);
-}
-
-// Mirrors fc/core.c's LOITER/RTH engage rules: RTH wins over LOITER when both switches are on,
-// and neither engages while disarmed or without an accelerometer.
-static telemetryNavBlocked_e navBlocked(void)
-{
-#ifdef USE_GPS_NAV
-    const bool canFly = ARMING_FLAG(ARMED) && sensors(SENSOR_ACC);
-
-    if (IS_RC_MODE_ACTIVE(BOXRTH)) {
-        return (canFly && navCanRTH()) ? TELEM_NAV_BLOCKED_NONE : TELEM_NAV_BLOCKED_RTH;
-    }
-    if (IS_RC_MODE_ACTIVE(BOXLOITER)) {
-        return (canFly && navCanLoiter()) ? TELEM_NAV_BLOCKED_NONE : TELEM_NAV_BLOCKED_LOITER;
-    }
-#endif
-    return TELEM_NAV_BLOCKED_NONE;
-}
-
-// GPS nav is set up but can't run on this GPS provider. Checked from the settings so it shows
-// indoors with no fix.
-static bool gpsNavUnsupported(void)
-{
-#ifdef USE_GPS_NAV
-    if (!gpsIsEnabled() || gpsProviderSupportsNav()) {
-        return false;
-    }
-    if (isModeActivationConditionPresent(BOXRTH) || isModeActivationConditionPresent(BOXLOITER)) {
-        return true;
-    }
-#ifdef USE_GPS_RESCUE
-    if (gpsRescueIsConfigured()) {
-        return true;
-    }
-#endif
-#endif
-    return false;
 }
 
 static bool controlSaturated(void)
@@ -149,32 +104,14 @@ bool telemetryOverrideActive(void)
     return false;
 }
 
-static bool assistHolding(void)
-{
-    for (int axis = 0; axis < 3; axis++) {
-#ifdef USE_ACC
-        if (attHoldIsHolding(axis) || tvHoldIsHolding(axis)) {
-            return true;
-        }
-#endif
-#ifdef USE_ACRO_TRAINER
-        if (acroTrainerIsLimiting(axis)) {
-            return true;
-        }
-#endif
-    }
-
-    return false;
-}
-
 uint32_t telemetrySystemStatus(void)
 {
     uint32_t status = 0;
 
     if (ARMING_FLAG(ARMED))
         status |= TELEM_STATUS_ARMED;
-    if (isAirborne())
-        status |= TELEM_STATUS_AIRBORNE;
+    if (FLIGHT_MODE(INFLIGHT_MODE))
+        status |= TELEM_STATUS_RUNNING;
     if (areMotorsRunning())
         status |= TELEM_STATUS_MOTORS_RUNNING;
 
@@ -199,8 +136,6 @@ uint32_t telemetrySystemStatus(void)
     if (gpsIsHealthy())
         status |= TELEM_STATUS_GPS_HEALTHY;
 #endif
-    status |= field(navBlocked(), TELEM_STATUS_NAV_BLOCKED_MASK, TELEM_STATUS_NAV_BLOCKED_SHIFT);
-
     status |= field(getBatteryState(), TELEM_STATUS_BATTERY_MASK, TELEM_STATUS_BATTERY_SHIFT);
 
     if (controlSaturated())
@@ -213,12 +148,6 @@ uint32_t telemetrySystemStatus(void)
 #endif
     if (telemetryOverrideActive())
         status |= TELEM_STATUS_OVERRIDE_ACTIVE;
-    if (assistHolding())
-        status |= TELEM_STATUS_ASSIST_HOLDING;
-
-#ifdef USE_SERVOS
-    status |= field(autoTrimGetState(), TELEM_STATUS_AUTOTRIM_MASK, TELEM_STATUS_AUTOTRIM_SHIFT);
-#endif
 
 #ifdef USE_BLACKBOX
     if (blackboxIsLogging())
@@ -240,7 +169,6 @@ uint32_t telemetrySystemConfig(void)
     config |= field(getCurrentPidProfileIndex() + 1, TELEM_CONFIG_PROFILE_MASK, TELEM_CONFIG_PID_PROFILE_SHIFT);
     config |= field(getCurrentControlRateProfileIndex() + 1, TELEM_CONFIG_PROFILE_MASK, TELEM_CONFIG_RATES_PROFILE_SHIFT);
     config |= field(getCurrentBatteryProfileIndex() + 1, TELEM_CONFIG_PROFILE_MASK, TELEM_CONFIG_BATTERY_PROFILE_SHIFT);
-    config |= field(getCurrentTvProfileIndex() + 1, TELEM_CONFIG_PROFILE_MASK, TELEM_CONFIG_TV_PROFILE_SHIFT);
 
     if (isConfigDirty())
         config |= TELEM_CONFIG_DIRTY;
@@ -270,14 +198,6 @@ uint32_t telemetrySystemConfig(void)
 #endif
     if (isRpmSourceActive())
         config |= TELEM_CONFIG_RPM_SOURCE_ACTIVE;
-    if (gpsNavUnsupported())
-        config |= TELEM_CONFIG_GPS_NAV_UNSUPPORTED;
-
-#ifdef USE_SERVOS
-    config |= field(trimMonitorGetState(FD_ROLL), TELEM_CONFIG_TRIM_MASK, TELEM_CONFIG_TRIM_ROLL_SHIFT);
-    config |= field(trimMonitorGetState(FD_PITCH), TELEM_CONFIG_TRIM_MASK, TELEM_CONFIG_TRIM_PITCH_SHIFT);
-    config |= field(trimMonitorGetState(FD_YAW), TELEM_CONFIG_TRIM_MASK, TELEM_CONFIG_TRIM_YAW_SHIFT);
-#endif
 
     return config;
 }

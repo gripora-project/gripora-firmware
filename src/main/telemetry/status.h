@@ -33,7 +33,7 @@
 /** TELEM_SYSTEM_STATUS: live state that drives radio callouts **/
 
 #define TELEM_STATUS_ARMED                  (1u << 0)   // armingFlags ARMED
-#define TELEM_STATUS_AIRBORNE               (1u << 1)   // isAirborne()
+#define TELEM_STATUS_RUNNING                (1u << 1)   // car running latch (INFLIGHT_MODE), was airborne
 #define TELEM_STATUS_MOTORS_RUNNING         (1u << 2)   // areMotorsRunning()
 #define TELEM_STATUS_RX_LINK_UP             (1u << 3)   // main RX receiving
 #define TELEM_STATUS_RX_BACKUP_LINK_UP      (1u << 4)   // every configured backup RX has fresh frames
@@ -46,8 +46,7 @@
 #define TELEM_STATUS_GPS_FIX_MASK           0x3u
 #define TELEM_STATUS_GPS_HEALTHY            (1u << 11)  // GPS module is talking to the FC
 
-#define TELEM_STATUS_NAV_BLOCKED_SHIFT      12          // telemetryNavBlocked_e
-#define TELEM_STATUS_NAV_BLOCKED_MASK       0x3u
+// Bits 12-13 reserved (were GPS nav blocked, removed), read as 0.
 
 #define TELEM_STATUS_BATTERY_SHIFT          14          // batteryState_e
 #define TELEM_STATUS_BATTERY_MASK           0x7u
@@ -57,10 +56,8 @@
 #define TELEM_STATUS_ACC_NOT_CALIBRATED     (1u << 19)  // ACC present but never calibrated
 #define TELEM_STATUS_OVERRIDE_ACTIVE        (1u << 20)  // bench override on: servo/motor/mixer override,
                                                         // servo probe or forced mode (setup state)
-#define TELEM_STATUS_ASSIST_HOLDING         (1u << 21)  // ATTHOLD/TV hold holding, or acro trainer limiting
-
-#define TELEM_STATUS_AUTOTRIM_SHIFT         22          // autoTrimState_e
-#define TELEM_STATUS_AUTOTRIM_MASK          0x3u
+// Bit 21 reserved (was ATTHOLD/TV hold/acro trainer assist holding, removed), read as 0.
+// Bits 22-23 reserved (were AUTO TRIM state, removed), read as 0.
 
 #define TELEM_STATUS_BLACKBOX_LOGGING       (1u << 24)  // Blackbox is writing a log
 
@@ -74,7 +71,7 @@
 #define TELEM_CONFIG_PID_PROFILE_SHIFT      0           // 1-based profile number
 #define TELEM_CONFIG_RATES_PROFILE_SHIFT    3
 #define TELEM_CONFIG_BATTERY_PROFILE_SHIFT  6
-#define TELEM_CONFIG_TV_PROFILE_SHIFT       9
+// Bits 9-11 reserved (were the thrust-vector profile, removed), read as 0.
 #define TELEM_CONFIG_PROFILE_MASK           0x7u
 
 #define TELEM_CONFIG_DIRTY                  (1u << 12)  // settings changed but not saved
@@ -89,17 +86,8 @@
 #define TELEM_CONFIG_BLACKBOX_FULL          (1u << 21)
 #define TELEM_CONFIG_RPM_SOURCE_ACTIVE      (1u << 22)  // motor RPM telemetry is arriving
 
-// Out of trim, per axis: trimMonitorState_e (0 = in trim, 1 = trim right / nose up,
-// 2 = trim left / nose down). Changes over seconds, so it rides in this word.
-#define TELEM_CONFIG_TRIM_ROLL_SHIFT        23
-#define TELEM_CONFIG_TRIM_PITCH_SHIFT       25
-#define TELEM_CONFIG_TRIM_YAW_SHIFT         27
-#define TELEM_CONFIG_TRIM_MASK              0x3u
-
-// LOITER/RTH is on a switch, or the failsafe is GPS rescue, but the GPS provider can't navigate
-// (NMEA, FBUS or CRSF; see gpsProviderSupportsNav()). From the settings, not the live fix, so it
-// shows on the bench too.
-#define TELEM_CONFIG_GPS_NAV_UNSUPPORTED    (1u << 29)
+// Bits 23-28 reserved (were the per-axis trim monitor state, removed), read as 0.
+// Bit 29 reserved (was GPS nav unsupported, removed), read as 0.
 
 // Bit 30 spare, bit 31 reserved.
 
@@ -108,13 +96,6 @@ typedef enum {
     TELEM_GPS_FIX_OK,
     TELEM_GPS_FIX_HOME,             // fix, and home position captured
 } telemetryGpsFix_e;
-
-// LOITER/RTH switched on but the mode can't fly: disarmed, no ACC, no usable fix, or (RTH) no home.
-typedef enum {
-    TELEM_NAV_BLOCKED_NONE = 0,
-    TELEM_NAV_BLOCKED_LOITER,
-    TELEM_NAV_BLOCKED_RTH,
-} telemetryNavBlocked_e;
 
 bool telemetryOverrideActive(void);
 uint32_t telemetrySystemStatus(void);

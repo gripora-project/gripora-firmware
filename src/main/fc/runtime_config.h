@@ -45,7 +45,7 @@ typedef enum {
     ARMING_DISABLED_RX_FAILSAFE     = (1 << 2),
     ARMING_DISABLED_BAD_RX_RECOVERY = (1 << 3),
     ARMING_DISABLED_BOXFAILSAFE     = (1 << 4),
-    ARMING_DISABLED_GOVERNOR        = (1 << 5), // governor switch engaged
+    ARMING_DISABLED_GOVERNOR        = (1 << 5), // reserved (governor removed) -- never set
     ARMING_DISABLED_RPM_SIGNAL      = (1 << 6),
     ARMING_DISABLED_THROTTLE        = (1 << 7),
     ARMING_DISABLED_ANGLE           = (1 << 8),
@@ -58,8 +58,8 @@ typedef enum {
     ARMING_DISABLED_BST             = (1 << 15),
     ARMING_DISABLED_MSP             = (1 << 16),
     ARMING_DISABLED_PARALYZE        = (1 << 17), // reserved (PARALYZE removed) -- never set
-    ARMING_DISABLED_GPS             = (1 << 18),
-    ARMING_DISABLED_RESC            = (1 << 19),
+    ARMING_DISABLED_GPS             = (1 << 18), // reserved (GPS rescue removed) -- never set
+    ARMING_DISABLED_RESC            = (1 << 19), // reserved (GPS rescue/nav removed) -- never set
     ARMING_DISABLED_RPMFILTER       = (1 << 20),
     ARMING_DISABLED_REBOOT_REQUIRED = (1 << 21),
     ARMING_DISABLED_DSHOT_BITBANG   = (1 << 22),
@@ -90,63 +90,21 @@ armingDisableFlags_e getArmingDisableFlags(void);
 
 typedef enum {
     FAILSAFE_MODE_BIT    = 0,
-    ANGLE_MODE_BIT       = 1,
-    // bit 2 reserved (was HORIZON_MODE, removed) -- do not reuse, telemetry and logs still carry it
-    TRAINER_MODE_BIT     = 3,
-    // bit 4 reserved (was ALTHOLD_MODE, never implemented) -- do not reuse, telemetry and logs still carry it
-    ATTHOLD_MODE_BIT     = 5,
-    GPS_RESCUE_MODE_BIT  = 6,
+    // bits 1-6 and 9-14 reserved (ANGLE, HORIZON, TRAINER, ALTHOLD, ATTHOLD, GPS_RESCUE, AUTOHOVER,
+    // MANUAL, AUTOTRIM, LOITER, RTH, TRADITIONAL; all removed) -- do not reuse, telemetry and logs
+    // still carry them
     PASSTHROUGH_MODE_BIT = 7,
     INFLIGHT_MODE_BIT    = 8,
-    // bit 9 reserved (was AUTOHOVER_MODE, removed) -- do not reuse, telemetry and logs still carry it
-    MANUAL_MODE_BIT      = 10,
-    AUTOTRIM_MODE_BIT    = 11,
-    LOITER_MODE_BIT      = 12,
-    RTH_MODE_BIT         = 13,
-    TRADITIONAL_MODE_BIT = 14,
 } flightModeBits_e;
 
 typedef enum {
     FAILSAFE_MODE        = BIT(FAILSAFE_MODE_BIT),
-    ANGLE_MODE           = BIT(ANGLE_MODE_BIT),
-    TRAINER_MODE         = BIT(TRAINER_MODE_BIT),
-    // ATT HOLD: quaternion-based hold of whatever attitude the aircraft was in when every stick
-    // last returned to center -- any orientation, not just level or vertical. See flight/atthold.c;
-    // quaternions because this must survive inverted/knife-edge attitudes, where Euler angles
-    // hit gimbal lock. Freezes/tracks each axis based on a stick deadband.
-    ATTHOLD_MODE         = BIT(ATTHOLD_MODE_BIT),
-    GPS_RESCUE_MODE      = BIT(GPS_RESCUE_MODE_BIT),
+    // GYRO OFF (BOXPASSTHROUGH): raw sticks straight to the outputs, no gyro correction
     PASSTHROUGH_MODE     = BIT(PASSTHROUGH_MODE_BIT),
-    // Latched "are we actually flying" signal for telemetry/dashboard consumers, not a pilot-
-    // selectable mode. Engaging the GOVERNOR switch is treated as a deliberate "starting the
-    // flight" signal (robust even at idle throttle -- unlike a bare throttle threshold, which a
-    // plane legitimately dips below in normal flight); a plain throttle threshold and, where a
-    // baro/GPS fix is available, altitude gain above the armed baseline (for gentle/glider-style
-    // launches that never cross the throttle threshold) are the fallbacks for setups that don't
-    // use the governor switch. Once set, holds through momentary throttle/mode dips so mid-flight
-    // noise doesn't flicker it back off -- it only clears on disarm, or earlier if the governor
-    // switch was used this flight and gets switched off with throttle back at idle (read as
-    // "landed", since some pilots delay disarming while taxiing back).
+    // Latched "the car is running" signal for telemetry/dashboard consumers, not a selectable
+    // mode (the name is inherited). Set once armed and the throttle has left neutral, held through
+    // stops so it does not flicker, cleared on disarm. See processRxModes() in fc/core.c.
     INFLIGHT_MODE        = BIT(INFLIGHT_MODE_BIT),
-    // MANUAL (was named GYRO OFF): pilot flies the same rate/expo curve as stabilised (rate) flight, but the mixer
-    // takes that shaped setpoint directly instead of the gyro-corrected PID output -- no
-    // stabilisation at all, unlike PASSTHROUGH_MODE which also strips the rates/expo curve itself
-    // and feeds raw radio deflection straight through.
-    MANUAL_MODE          = BIT(MANUAL_MODE_BIT),
-    // AUTO TRIM: mirrors BOXAUTOTRIM's switch position (not the internal capture state machine in
-    // flight/autotrim.c) purely so telemetry/OSD/Lua consumers can see it, the same way every other
-    // switch-driven mode is exposed.
-    AUTOTRIM_MODE        = BIT(AUTOTRIM_MODE_BIT),
-    // GPS LOITER / GPS RTH: basic fixed-wing position-hold and return-to-home. See flight/gps_nav.c
-    // for the guidance controller; both force ANGLE_MODE-style leveling (like GPS_RESCUE_MODE) and
-    // inject a bank/pitch angle on top of the pilot's stick input, throttle stays manual.
-    LOITER_MODE          = BIT(LOITER_MODE_BIT),
-    RTH_MODE             = BIT(RTH_MODE_BIT),
-    // TRADITIONAL: layers on top of whatever stabilisation is already active (default rate PID
-    // or ANGLE) and forces that axis's I-term output to zero, so the servo snaps back
-    // immediately on stick release instead of holding -- a more traditional RC-gyro feel. Does not
-    // touch iterm_relax/iterm_decay bookkeeping, so I resumes smoothly if this mode is switched off.
-    TRADITIONAL_MODE     = BIT(TRADITIONAL_MODE_BIT),
 } flightModeFlags_e;
 
 extern uint16_t flightModeFlags;
@@ -156,14 +114,9 @@ extern uint16_t flightModeFlags;
 #define FLIGHT_MODE(mask) (flightModeFlags & (mask))
 
 // macro to initialize map from boxId_e flightModeBits. Keep it in sync with flightModeFlags_e enum.
-// [BOXARM], [BOXHORIZON] (HORIZON removed), [BOXALTHOLD] (never implemented) and [BOXRESCUE]
-// (heli rescue removed) are left unpopulated
+// [BOXARM] and the reserved (removed) flight-mode boxes are left unpopulated; they are never
+// reported (see msp_box.c)
 #define BOXID_TO_FLIGHT_MODE_MAP_INITIALIZER {           \
-   [BOXANGLE]       = ANGLE_MODE_BIT,                    \
-   [BOXTRAINER]     = TRAINER_MODE_BIT,                  \
-   [BOXATTHOLD]     = ATTHOLD_MODE_BIT,                  \
-   [BOXLOITER]      = LOITER_MODE_BIT,                   \
-   [BOXRTH]         = RTH_MODE_BIT,                      \
    [BOXFAILSAFE]    = FAILSAFE_MODE_BIT,                 \
    [BOXPASSTHROUGH] = PASSTHROUGH_MODE_BIT,              \
 }                                                        \

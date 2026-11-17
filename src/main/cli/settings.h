@@ -34,13 +34,6 @@ typedef enum {
     TABLE_GPS_SBAS_MODE,
     TABLE_GPS_UBLOX_MODE,
 #endif
-#ifdef USE_GPS_RESCUE
-    TABLE_GPS_RESCUE_SANITY_CHECK,
-    TABLE_GPS_RESCUE_ALT_MODE,
-#endif
-#ifdef USE_GPS_NAV
-    TABLE_NAV_LOITER_DIRECTION,
-#endif
 #ifdef USE_BLACKBOX
     TABLE_BLACKBOX_DEVICE,
     TABLE_BLACKBOX_MODE,
@@ -119,7 +112,6 @@ typedef enum {
 #ifdef USE_SMARTFUEL
     TABLE_SMARTFUEL_MODE,
 #endif
-    TABLE_GOVERNOR_MODE,
 #ifdef USE_FBUS_MUX_FPGA
     TABLE_FBUS_MUX_MODE,
 #endif
@@ -151,7 +143,7 @@ typedef enum {
     PROFILE_VALUE = (1 << VALUE_SECTION_OFFSET),
     PROFILE_RATE_VALUE = (2 << VALUE_SECTION_OFFSET),
     HARDWARE_VALUE = (3 << VALUE_SECTION_OFFSET), // Part of the master section, but used for the hardware definition
-    PROFILE_TV_VALUE = (4 << VALUE_SECTION_OFFSET),
+    PROFILE_TV_VALUE = (4 << VALUE_SECTION_OFFSET), // unused (thrust vectoring removed)
 
     // value mode, bits 6-8
     MODE_DIRECT = (0 << VALUE_MODE_OFFSET),

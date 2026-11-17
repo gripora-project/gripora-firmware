@@ -62,7 +62,6 @@
 #include "flight/failsafe.h"
 #include "flight/mixer.h"
 #include "flight/pid.h"
-#include "flight/tv_pid.h"
 #include "flight/imu.h"
 #include "flight/rpm_filter.h"
 #include "flight/servos.h"
@@ -73,7 +72,6 @@
 #include "io/serial.h"
 
 #include "pg/blackbox.h"
-#include "pg/gps_nav.h"
 #include "pg/motor.h"
 #include "pg/rx.h"
 
@@ -177,7 +175,7 @@ static const blackboxDeltaFieldDefinition_t blackboxMainFields[] =
     {"rcCommand",   1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG8_4S16),  CONDITION(COMMAND)},
     {"rcCommand",   2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG8_4S16),  CONDITION(COMMAND)},
     {"rcCommand",   3, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG8_4S16),  CONDITION(COMMAND)},
-    {"rcCommand",   4, UNSIGNED, .Ipredict = PREDICT(0),       .Iencode = ENCODING(UNSIGNED_VB),  .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(SIGNED_VB),  CONDITION(COMMAND)},
+    {"rcCommand",   4, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(SIGNED_VB),  CONDITION(COMMAND)},
 
     /* setpoint - define 4 fields like RC command (index 3, collective, is
        always 0 -- no collective setpoint on fixed-wing) */
@@ -210,23 +208,6 @@ static const blackboxDeltaFieldDefinition_t blackboxMainFields[] =
     {"axisB",       0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(BOOST)},
     {"axisB",       1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(BOOST)},
     {"axisB",       2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(BOOST)},
-
-    /* Thrust Vector's independent PID loop, when a mixer rule uses it */
-    {"tvAxisP",     0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisP",     1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisP",     2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisI",     0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisI",     1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisI",     2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisD",     0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisD",     1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisD",     2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisF",     0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisF",     1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisF",     2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisB",     0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisB",     1, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
-    {"tvAxisB",     2, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(THRUST_VECTOR)},
 
     /* Attitude Euler angles in 0.1deg steps */
     {"attitude",    0, SIGNED,   .Ipredict = PREDICT(0),       .Iencode = ENCODING(SIGNED_VB),    .Ppredict = PREDICT(PREVIOUS),      .Pencode = ENCODING(TAG2_3S32),  CONDITION(ATTITUDE)},
@@ -338,8 +319,7 @@ static const blackboxSimpleFieldDefinition_t blackboxGpsHFields[] = {
 static const blackboxSimpleFieldDefinition_t blackboxSlowFields[] = {
     {"flightModeFlags",       -1, UNSIGNED, PREDICT(0),      ENCODING(UNSIGNED_VB)},
     // rcModeActivationMask (see loadSlowState()) is a boxBitmask_t -- wider than one uint32_t once
-    // CHECKBOX_ITEM_COUNT (currently 42) passes 32 boxes, which BOXMANUAL and several others
-    // already do. This second word carries boxId 32-63 so those modes are actually recoverable
+    // CHECKBOX_ITEM_COUNT (currently 42) passes 32 boxes, which several modes already do. This second word carries boxId 32-63 so those modes are actually recoverable
     // from the log instead of silently vanishing.
     {"flightModeFlags2",      -1, UNSIGNED, PREDICT(0),      ENCODING(UNSIGNED_VB)},
     {"stateFlags",            -1, UNSIGNED, PREDICT(0),      ENCODING(UNSIGNED_VB)},
@@ -399,11 +379,6 @@ typedef struct blackboxMainState_s {
     int32_t axisPID_F[XYZ_AXIS_COUNT];
     int32_t axisPID_B[XYZ_AXIS_COUNT];
 
-    int32_t tvAxisPID_P[XYZ_AXIS_COUNT];
-    int32_t tvAxisPID_I[XYZ_AXIS_COUNT];
-    int32_t tvAxisPID_D[XYZ_AXIS_COUNT];
-    int32_t tvAxisPID_F[XYZ_AXIS_COUNT];
-    int32_t tvAxisPID_B[XYZ_AXIS_COUNT];
 
     int16_t attitude[XYZ_AXIS_COUNT];
     int16_t gyroRAW[XYZ_AXIS_COUNT];
@@ -482,7 +457,7 @@ static bool blackboxStarted = false;
 
 static uint32_t blackboxLastArmingBeep = 0;
 // Same 32-bit-vs-boxBitmask_t truncation this file's slowHistory.flightModeFlags used to have (see
-// loadSlowState()) -- boxId >= 32 (BOXMANUAL etc.) never trips the FLIGHT_LOG_EVENT_FLIGHTMODE
+// loadSlowState()) -- boxId >= 32 never trips the FLIGHT_LOG_EVENT_FLIGHTMODE
 // change event below. Left as-is rather than widened alongside the slow frame fix: unlike that
 // generic, self-describing S-frame field, this "E" event's wire format is a hardcoded 2-VB layout
 // in the log viewer's parser, so widening it here would desync event-frame parsing for any log
@@ -586,12 +561,6 @@ static bool testBlackboxConditionUncached(FlightLogFieldCondition condition)
             (currentPidProfile->pid[PID_PITCH].B > 0 ||
              currentPidProfile->pid[PID_ROLL].B > 0 ||
              currentPidProfile->pid[PID_YAW].B > 0);
-
-    // Taken at log start with the rest of the condition cache, so the field set stays fixed for
-    // the whole log even if the mixer rules are edited while it runs.
-    case CONDITION(THRUST_VECTOR):
-        return isFieldEnabled(FIELD_SELECT(PID)) &&
-            (tvPidAxisDriven(PID_ROLL) || tvPidAxisDriven(PID_PITCH) || tvPidAxisDriven(PID_YAW));
 
     case CONDITION(ATTITUDE):
         return isFieldEnabled(FIELD_SELECT(ATTITUDE));
@@ -763,10 +732,10 @@ static void writeIntraframe(void)
         blackboxWriteSigned16VBArray(blackboxCurrent->command, 4);
 
         /*
-        * Write the throttle separately from the rest of the RC data as it's unsigned.
-        * Throttle lies in range [0..1000]:
+        * Write the throttle separately from the rest of the RC data.
+        * Car throttle is signed, -1000..1000 (brake/reverse below neutral):
         */
-        blackboxWriteUnsignedVB(blackboxCurrent->command[4]);
+        blackboxWriteSignedVB(blackboxCurrent->command[4]);
     }
 
     if (testBlackboxCondition(CONDITION(SETPOINT))) {
@@ -786,14 +755,6 @@ static void writeIntraframe(void)
 
     if (testBlackboxCondition(CONDITION(BOOST))) {
         blackboxWriteSignedVBArray(blackboxCurrent->axisPID_B, XYZ_AXIS_COUNT);
-    }
-
-    if (testBlackboxCondition(CONDITION(THRUST_VECTOR))) {
-        blackboxWriteSignedVBArray(blackboxCurrent->tvAxisPID_P, XYZ_AXIS_COUNT);
-        blackboxWriteSignedVBArray(blackboxCurrent->tvAxisPID_I, XYZ_AXIS_COUNT);
-        blackboxWriteSignedVBArray(blackboxCurrent->tvAxisPID_D, XYZ_AXIS_COUNT);
-        blackboxWriteSignedVBArray(blackboxCurrent->tvAxisPID_F, XYZ_AXIS_COUNT);
-        blackboxWriteSignedVBArray(blackboxCurrent->tvAxisPID_B, XYZ_AXIS_COUNT);
     }
 
     if (testBlackboxCondition(CONDITION(ATTITUDE))) {
@@ -983,23 +944,6 @@ static void writeInterframe(void)
         blackboxWriteTag2_3S32(deltas);
     }
 
-    if (testBlackboxCondition(CONDITION(THRUST_VECTOR))) {
-        CALC_DELTAS(deltas, blackboxCurrent->tvAxisPID_P, blackboxPrev->tvAxisPID_P, XYZ_AXIS_COUNT);
-        blackboxWriteTag2_3S32(deltas);
-
-        CALC_DELTAS(deltas, blackboxCurrent->tvAxisPID_I, blackboxPrev->tvAxisPID_I, XYZ_AXIS_COUNT);
-        blackboxWriteTag2_3S32(deltas);
-
-        CALC_DELTAS(deltas, blackboxCurrent->tvAxisPID_D, blackboxPrev->tvAxisPID_D, XYZ_AXIS_COUNT);
-        blackboxWriteTag2_3S32(deltas);
-
-        CALC_DELTAS(deltas, blackboxCurrent->tvAxisPID_F, blackboxPrev->tvAxisPID_F, XYZ_AXIS_COUNT);
-        blackboxWriteTag2_3S32(deltas);
-
-        CALC_DELTAS(deltas, blackboxCurrent->tvAxisPID_B, blackboxPrev->tvAxisPID_B, XYZ_AXIS_COUNT);
-        blackboxWriteTag2_3S32(deltas);
-    }
-
     if (testBlackboxCondition(CONDITION(ATTITUDE))) {
         CALC_DELTAS(deltas, blackboxCurrent->attitude, blackboxPrev->attitude, XYZ_AXIS_COUNT);
         blackboxWriteTag2_3S32(deltas);
@@ -1144,7 +1088,7 @@ static void loadSlowState(blackboxSlowState_t *slow)
 {
     // rcModeActivationMask is a boxBitmask_t, i.e. bits[(CHECKBOX_ITEM_COUNT + 31) / 32] uint32_t
     // words -- currently 2 words (CHECKBOX_ITEM_COUNT=42), not 1. A memcpy sized to
-    // slow->flightModeFlags alone silently dropped every boxId >= 32 (BOXMANUAL among them);
+    // slow->flightModeFlags alone silently dropped every boxId >= 32;
     // assign both words explicitly instead so a future memcpy-by-sizeof mistake can't reintroduce
     // that silently. The assert catches the case where CHECKBOX_ITEM_COUNT grows past 64 boxes and
     // a third word would be needed.
@@ -1247,7 +1191,7 @@ static void blackboxStart(void)
     blackboxLastArmingBeep = getArmingBeepTimeMicros();
     memcpy(&blackboxLastFlightModeFlags, &rcModeActivationMask, sizeof(blackboxLastFlightModeFlags)); // record startup status
 
-    blackboxLastAirborneState = isAirborne();
+    blackboxLastAirborneState = FLIGHT_MODE(INFLIGHT_MODE) ? 1 : 0;
 
     blackboxSetState(BLACKBOX_STATE_WAIT_FOR_READY);
 }
@@ -1371,16 +1315,6 @@ static void loadMainState(timeUs_t currentTimeUs)
         blackboxCurrent->axisPID_D[i] = lrintf(pidData[i].D * 1000);
         blackboxCurrent->axisPID_F[i] = lrintf(pidData[i].F * 1000);
         blackboxCurrent->axisPID_B[i] = lrintf(pidData[i].B * 1000);
-    }
-
-    const tvPidAxisData_t *tvPidData = tvPidGetAxisData();
-
-    for (int i = 0; i < XYZ_AXIS_COUNT; i++) {
-        blackboxCurrent->tvAxisPID_P[i] = lrintf(tvPidData[i].P * 1000);
-        blackboxCurrent->tvAxisPID_I[i] = lrintf(tvPidData[i].I * 1000);
-        blackboxCurrent->tvAxisPID_D[i] = lrintf(tvPidData[i].D * 1000);
-        blackboxCurrent->tvAxisPID_F[i] = lrintf(tvPidData[i].F * 1000);
-        blackboxCurrent->tvAxisPID_B[i] = lrintf(tvPidData[i].B * 1000);
     }
 
     for (int i = 0; i < XYZ_AXIS_COUNT; i++) {
@@ -1733,16 +1667,6 @@ static bool blackboxWriteSysinfo(void)
                                                                             currentPidProfile->pid[PID_YAW].D,
                                                                             currentPidProfile->pid[PID_YAW].F,
                                                                             currentPidProfile->pid[PID_YAW].B);
-        BLACKBOX_PRINT_HEADER_LINE("levelPID", "%d,%d",                    currentPidProfile->angle.level_strength,
-                                                                            currentPidProfile->angle.level_limit);
-        BLACKBOX_PRINT_HEADER_LINE("level_damping", "%d",                  levelConfigs(getCurrentPidProfileIndex())->damping);
-        BLACKBOX_PRINT_HEADER_LINE("snap_relax", "%d,%d,%d,%d",            snapRelaxConfigs(getCurrentPidProfileIndex())->strength,
-                                                                            snapRelaxConfigs(getCurrentPidProfileIndex())->threshold,
-                                                                            snapRelaxConfigs(getCurrentPidProfileIndex())->window,
-                                                                            snapRelaxConfigs(getCurrentPidProfileIndex())->hold);
-        BLACKBOX_PRINT_HEADER_LINE("prop_hang", "%d,%d,%d",                propHangConfigs(getCurrentPidProfileIndex())->strength,
-                                                                            propHangConfigs(getCurrentPidProfileIndex())->angle,
-                                                                            propHangConfigs(getCurrentPidProfileIndex())->fade);
         BLACKBOX_PRINT_HEADER_LINE("rollBW", "%d,%d,%d",                    currentPidProfile->gyro_cutoff[PID_ROLL],
                                                                             currentPidProfile->dterm_cutoff[PID_ROLL],
                                                                             currentPidProfile->bterm_cutoff[PID_ROLL]);
@@ -1766,23 +1690,6 @@ static bool blackboxWriteSysinfo(void)
                                                                             fwSpaConfigs(getCurrentPidProfileIndex())->speed_max);
         BLACKBOX_PRINT_HEADER_ARRAY("master_gain", "%d", 3,                 currentPidProfile->master_gain);
         BLACKBOX_PRINT_HEADER_ARRAY("gain_curve", "%d", 3,                  currentPidProfile->gain_curve);
-        BLACKBOX_PRINT_HEADER_LINE("tvRollPID", "%d,%d,%d,%d,%d",           currentTvPidProfile->pid[PID_ROLL].P,
-                                                                            currentTvPidProfile->pid[PID_ROLL].I,
-                                                                            currentTvPidProfile->pid[PID_ROLL].D,
-                                                                            currentTvPidProfile->pid[PID_ROLL].F,
-                                                                            currentTvPidProfile->pid[PID_ROLL].B);
-        BLACKBOX_PRINT_HEADER_LINE("tvPitchPID", "%d,%d,%d,%d,%d",          currentTvPidProfile->pid[PID_PITCH].P,
-                                                                            currentTvPidProfile->pid[PID_PITCH].I,
-                                                                            currentTvPidProfile->pid[PID_PITCH].D,
-                                                                            currentTvPidProfile->pid[PID_PITCH].F,
-                                                                            currentTvPidProfile->pid[PID_PITCH].B);
-        BLACKBOX_PRINT_HEADER_LINE("tvYawPID", "%d,%d,%d,%d,%d",            currentTvPidProfile->pid[PID_YAW].P,
-                                                                            currentTvPidProfile->pid[PID_YAW].I,
-                                                                            currentTvPidProfile->pid[PID_YAW].D,
-                                                                            currentTvPidProfile->pid[PID_YAW].F,
-                                                                            currentTvPidProfile->pid[PID_YAW].B);
-        BLACKBOX_PRINT_HEADER_ARRAY("tv_master_gain", "%d", 3,              currentTvPidProfile->master_gain);
-        BLACKBOX_PRINT_HEADER_ARRAY("tv_gain_curve", "%d", 3,               currentTvPidProfile->gain_curve);
         // One line per curve; add lines here if GAIN_CURVE_COUNT grows
         STATIC_ASSERT(GAIN_CURVE_COUNT == 8, blackbox_gain_curve_headers_mismatch);
         BLACKBOX_PRINT_HEADER_CUSTOM(blackboxPrintGainCurveHeader(0);)
@@ -1793,27 +1700,6 @@ static bool blackboxWriteSysinfo(void)
         BLACKBOX_PRINT_HEADER_CUSTOM(blackboxPrintGainCurveHeader(5);)
         BLACKBOX_PRINT_HEADER_CUSTOM(blackboxPrintGainCurveHeader(6);)
         BLACKBOX_PRINT_HEADER_CUSTOM(blackboxPrintGainCurveHeader(7);)
-        BLACKBOX_PRINT_HEADER_LINE("cross_axis_relax", "%d,%d,%d,%d",       currentPidProfile->cross_axis_relax_strength,
-                                                                            currentPidProfile->cross_axis_relax_level,
-                                                                            currentPidProfile->cross_axis_relax_cutoff,
-                                                                            currentPidProfile->cross_axis_relax_pitch_strength);
-#ifdef USE_GPS_NAV
-        // Order: loiter_radius, loiter_direction, rth_altitude, min_sats, max_bank_angle,
-        // max_pitch_angle, bearing_kp, altitude_kp, altitude_kd, throttle, turn_coordination
-        BLACKBOX_PRINT_HEADER_LINE("gps_nav", "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
-                                                                            gpsNavConfig()->loiterRadiusM,
-                                                                            gpsNavConfig()->loiterDirection,
-                                                                            gpsNavConfig()->rthAltitudeM,
-                                                                            gpsNavConfig()->minSats,
-                                                                            gpsNavConfig()->maxBankAngleDeg,
-                                                                            gpsNavConfig()->maxPitchAngleDeg,
-                                                                            gpsNavConfig()->bearingKp,
-                                                                            gpsNavConfig()->altitudeKp,
-                                                                            gpsNavConfig()->altitudeKd,
-                                                                            gpsNavConfig()->throttle,
-                                                                            gpsNavConfig()->turnCoordination);
-#endif
-
 
         BLACKBOX_PRINT_HEADER_LINE("roll_deadband", "%d",                   rcControlsConfig()->rc_roll_deadband);
         BLACKBOX_PRINT_HEADER_LINE("pitch_deadband", "%d",                  rcControlsConfig()->rc_pitch_deadband);
@@ -2005,8 +1891,10 @@ static void blackboxCheckAndLogFlightMode(void)
         blackboxLogEvent(FLIGHT_LOG_EVENT_FLIGHTMODE, (flightLogEventData_t *)&eventData);
     }
 
-    if (isAirborne() != blackboxLastAirborneState) {
-        blackboxLastAirborneState = isAirborne();
+    // The car running latch, logged as the inherited airborne-state event
+    const uint8_t running = FLIGHT_MODE(INFLIGHT_MODE) ? 1 : 0;
+    if (running != blackboxLastAirborneState) {
+        blackboxLastAirborneState = running;
         flightLogEvent_airborneState_t eventData;
         eventData.airborneState = blackboxLastAirborneState;
         blackboxLogEvent(FLIGHT_LOG_EVENT_AIRBORNE_STATE, (flightLogEventData_t *)&eventData);

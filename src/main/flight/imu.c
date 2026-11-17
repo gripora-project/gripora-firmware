@@ -37,7 +37,6 @@
 
 #include "fc/runtime_config.h"
 
-#include "flight/gps_rescue.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
 #include "flight/pid.h"
@@ -442,8 +441,7 @@ static void imuCalculateEstimatedAttitude(timeUs_t currentTimeUs)
 #if defined(USE_GPS)
     if (!useMag && sensors(SENSOR_GPS) && STATE(GPS_FIX) && gpsSol.numSat >= 5 && gpsSol.groundSpeed >= GPS_COG_MIN_GROUNDSPEED) {
         // Use GPS course over ground to correct attitude.values.yaw. The heading converges through the
-        // filter; it is deliberately not snapped to the course, which would step the yaw that ATTHOLD
-        // and the hold engine are holding.
+        // filter; it is deliberately not snapped to the course, which would step the yaw estimate.
         courseOverGround = DECIDEGREES_TO_RADIANS(gpsSol.groundCourse);
         useCOG = true;
     }

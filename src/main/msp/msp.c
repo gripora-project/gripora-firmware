@@ -85,17 +85,13 @@
 #include "fc/runtime_config.h"
 
 #include "flight/failsafe.h"
-#include "flight/gps_rescue.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
 #include "flight/logic_condition.h"
 #include "flight/pid.h"
-#include "flight/tv_hold.h"
-#include "flight/tv_pid.h"
 #include "flight/position.h"
 #include "flight/rpm_filter.h"
 #include "flight/servos.h"
-#include "flight/tune_advisor.h"
 
 #include "io/asyncfatfs/asyncfatfs.h"
 #include "io/beeper.h"
@@ -118,8 +114,6 @@
 #include "pg/board.h"
 #include "pg/dyn_notch.h"
 #include "pg/gyrodev.h"
-#include "pg/gps_nav.h"
-#include "pg/governor.h"
 #include "pg/motor.h"
 #include "pg/rx.h"
 #include "pg/rx_spi.h"
@@ -929,36 +923,6 @@ static bool mspCommonProcessOutCommand(int16_t cmdMSP, sbuf_t *dst, mspPostProce
     return true;
 }
 
-#ifdef USE_TUNE_ADVISOR
-static uint16_t mspSatU16(uint32_t value)
-{
-    return MIN(value, (uint32_t)UINT16_MAX);
-}
-
-// Ratio x1000 as a signed 16-bit value on the wire
-static uint16_t mspRatio(float value)
-{
-    return (uint16_t)(int16_t)constrain(lrintf(value * 1000), INT16_MIN, INT16_MAX);
-}
-
-// A value x scale in one byte, unsigned or signed, saturated to the byte's range
-static uint8_t mspScaledU8(float value, float scale)
-{
-    return (uint8_t)constrain(lrintf(value * scale), 0, UINT8_MAX);
-}
-
-static uint8_t mspScaledS8(float value, float scale)
-{
-    return (uint8_t)(int8_t)constrain(lrintf(value * scale), INT8_MIN, INT8_MAX);
-}
-
-// P, F and B (0..PID_GAIN_MAX) in 10 bits each: bits 0-9, 10-19 and 20-29
-static uint32_t mspPackGains(uint16_t p, uint16_t f, uint16_t b)
-{
-    return (uint32_t)MIN(p, 1023) | ((uint32_t)MIN(f, 1023) << 10) | ((uint32_t)MIN(b, 1023) << 20);
-}
-#endif
-
 static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 {
     bool unsupportedCommand = false;
@@ -1104,7 +1068,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
     case MSP_SERVO_TRIM:
         // U8 count, then one S16 per servo of the live, runtime-only trim in us from
         // continuous SERVO_TRIM_* adjustments (never saved), then one S16 per servo of
-        // the saved trim (servoTrims PG, from stepped SERVO_TRIM_* and AUTO TRIM). The
+        // the saved trim (servoTrims PG, from stepped SERVO_TRIM_* and MSP2_WING_SET_SERVO_TRIM). The
         // saved block is appended so a client that only reads the runtime block still
         // works.
         {
@@ -1231,18 +1195,6 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
 #endif
 
-    case MSP2_WING_GOVERNOR_CONFIG:
-        sbufWriteU8(dst, governorConfig()->governor_mode);
-        sbufWriteU16(dst, governorConfig()->governor_rpm);
-        sbufWriteU16(dst, governorConfig()->governor_gain);
-        sbufWriteU16(dst, governorConfig()->governor_i_gain);
-        sbufWriteU8(dst, governorConfig()->governor_throttle);
-        sbufWriteU8(dst, governorConfig()->governor_handover);
-        sbufWriteU8(dst, governorConfig()->governor_ceiling);
-        sbufWriteU16(dst, governorConfig()->governor_rpm_min);
-        sbufWriteU16(dst, governorConfig()->governor_rpm_max);
-        break;
-
     case MSP2_WING_EFFECTIVE_PID_GAINS: {
         pidRuntimeGains_t runtimeGains;
         pidGetRuntimeGains(&runtimeGains);
@@ -1295,31 +1247,6 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         }
         break;
 #endif
-
-    case MSP2_WING_TV_EFFECTIVE_PID_GAINS: {
-        tvPidRuntimeGains_t runtimeGains;
-        tvPidGetRuntimeGains(&runtimeGains);
-
-        sbufWriteU8(dst, 1); // payload version
-        sbufWriteU8(dst, getCurrentTvProfileIndex());
-
-        for (int axis = 0; axis < PID_AXIS_COUNT; axis++) {
-            sbufWriteU16(dst, runtimeGains.raw[axis].P);
-            sbufWriteU16(dst, runtimeGains.raw[axis].I);
-            sbufWriteU16(dst, runtimeGains.raw[axis].D);
-            sbufWriteU16(dst, runtimeGains.raw[axis].F);
-            sbufWriteU16(dst, runtimeGains.raw[axis].B);
-            sbufWriteU16(dst, runtimeGains.masterGain[axis]);
-            sbufWriteU32(dst, runtimeGains.gainCurve[axis]);
-            sbufWriteU32(dst, runtimeGains.gainCurvePosition[axis]);
-            sbufWriteU32(dst, runtimeGains.effective[axis].P);
-            sbufWriteU32(dst, runtimeGains.effective[axis].I);
-            sbufWriteU32(dst, runtimeGains.effective[axis].D);
-            sbufWriteU32(dst, runtimeGains.effective[axis].F);
-            sbufWriteU32(dst, runtimeGains.effective[axis].B);
-        }
-        break;
-    }
 
 #if defined(USE_FBUS_MASTER) || defined(USE_SPORT_MASTER)
     case MSP2_WING_FBUS_SENSORS: {
@@ -1714,52 +1641,6 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteS16(dst, boardAlignment()->mountTrim.yaw);
         break;
 
-    case MSP2_WING_TV_PID_CONFIG:
-        // Leading byte identifies which of the PID_PROFILE_COUNT TV profiles the
-        // rest of this payload describes -- always "currently active", same as
-        // MSP_PID_PROFILE for the main PID loop (the configurator/Lua suite select
-        // the active profile via MSP2_WING_SELECT_TV_PROFILE, then re-read this).
-        sbufWriteU8(dst, getCurrentTvProfileIndex());
-        for (int i = 0; i < PID_ITEM_COUNT; i++) {
-            sbufWriteU16(dst, currentTvPidProfile->pid[i].P);
-            sbufWriteU16(dst, currentTvPidProfile->pid[i].I);
-            sbufWriteU16(dst, currentTvPidProfile->pid[i].D);
-            sbufWriteU16(dst, currentTvPidProfile->pid[i].F);
-            sbufWriteU16(dst, currentTvPidProfile->pid[i].B);
-        }
-        sbufWriteU16(dst, currentTvPidProfile->master_gain[PID_ROLL]);
-        sbufWriteU16(dst, currentTvPidProfile->master_gain[PID_PITCH]);
-        sbufWriteU16(dst, currentTvPidProfile->master_gain[PID_YAW]);
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->iterm_decay_time[i]);
-        }
-        sbufWriteU8(dst, currentTvPidProfile->iterm_decay_limit);
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->iterm_relax_level[i]);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->iterm_relax[i]);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->error_limit[i]);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->dterm_cutoff[i]);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->bterm_cutoff[i]);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->gyro_cutoff[i]);
-        }
-        sbufWriteU8(dst, currentTvPidProfile->hold.gain);
-        sbufWriteU8(dst, currentTvPidProfile->hold.deadband);
-        sbufWriteU16(dst, currentTvPidProfile->hold.max_rate);
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            sbufWriteU8(dst, currentTvPidProfile->gain_curve[i]);
-        }
-        break;
-
     case MSP_DEBUG_CONFIG:
         sbufWriteU8(dst, DEBUG_COUNT);
         sbufWriteU8(dst, DEBUG_VALUE_COUNT);
@@ -1926,36 +1807,6 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
        }
         break;
 
-#ifdef USE_GPS_RESCUE
-    case MSP_GPS_RESCUE:
-        sbufWriteU16(dst, gpsRescueConfig()->angle);
-        sbufWriteU16(dst, gpsRescueConfig()->initialAltitudeM);
-        sbufWriteU16(dst, gpsRescueConfig()->descentDistanceM);
-        sbufWriteU16(dst, gpsRescueConfig()->rescueGroundspeed);
-        sbufWriteU16(dst, gpsRescueConfig()->throttleMin);
-        sbufWriteU16(dst, gpsRescueConfig()->throttleMax);
-        sbufWriteU16(dst, gpsRescueConfig()->throttleHover);
-        sbufWriteU8(dst,  gpsRescueConfig()->sanityChecks);
-        sbufWriteU8(dst,  gpsRescueConfig()->minSats);
-        // Added in API version 1.43
-        sbufWriteU16(dst, gpsRescueConfig()->ascendRate);
-        sbufWriteU16(dst, gpsRescueConfig()->descendRate);
-        sbufWriteU8(dst, gpsRescueConfig()->allowArmingWithoutFix);
-        sbufWriteU8(dst, gpsRescueConfig()->altitudeMode);
-        // Added in API version 1.44
-        sbufWriteU16(dst, gpsRescueConfig()->minRescueDth);
-        break;
-
-    case MSP_GPS_RESCUE_PIDS:
-        sbufWriteU16(dst, gpsRescueConfig()->throttleP);
-        sbufWriteU16(dst, gpsRescueConfig()->throttleI);
-        sbufWriteU16(dst, gpsRescueConfig()->throttleD);
-        sbufWriteU16(dst, gpsRescueConfig()->velP);
-        sbufWriteU16(dst, gpsRescueConfig()->velI);
-        sbufWriteU16(dst, gpsRescueConfig()->velD);
-        sbufWriteU16(dst, gpsRescueConfig()->yawP);
-        break;
-#endif
 #endif
 
 #if defined(USE_ACC)
@@ -2102,24 +1953,6 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, failsafeConfig()->failsafe_procedure);
         // Appended field -- older clients that only read the six bytes above are unaffected.
         sbufWriteU16(dst, failsafeConfig()->failsafe_recovery_delay);
-        break;
-
-    case MSP2_WING_GPS_NAV_CONFIG:
-        // gpsNavConfig_t (PG_GPS_NAV) -- the fixed-wing BOXRTH/BOXLOITER/GPS-rescue
-        // (FAILSAFE_PROCEDURE_GPS_RESCUE) nav controller's tuning, see gps_nav.c.
-        // No MSP command existed for this at all before -- CLI-only (nav_* settings).
-        sbufWriteU16(dst, gpsNavConfig()->loiterRadiusM);
-        sbufWriteU8(dst, gpsNavConfig()->loiterDirection);
-        sbufWriteU16(dst, gpsNavConfig()->rthAltitudeM);
-        sbufWriteU8(dst, gpsNavConfig()->minSats);
-        sbufWriteU8(dst, gpsNavConfig()->maxBankAngleDeg);
-        sbufWriteU8(dst, gpsNavConfig()->maxPitchAngleDeg);
-        sbufWriteU16(dst, gpsNavConfig()->bearingKp);
-        sbufWriteU16(dst, gpsNavConfig()->altitudeKp);
-        // Appended fields -- older clients that only read the bytes above are unaffected.
-        sbufWriteU16(dst, gpsNavConfig()->altitudeKd);
-        sbufWriteU8(dst, gpsNavConfig()->throttle);
-        sbufWriteU8(dst, gpsNavConfig()->turnCoordination);
         break;
 
     case MSP_RXFAIL_CONFIG:
@@ -2360,22 +2193,22 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, currentPidProfile->iterm_relax[0]);
         sbufWriteU8(dst, currentPidProfile->iterm_relax[1]);
         sbufWriteU8(dst, currentPidProfile->iterm_relax[2]);
-        /* Angle mode */
-        sbufWriteU8(dst, currentPidProfile->angle.level_strength);
-        sbufWriteU8(dst, currentPidProfile->angle.level_limit);
+        /* Reserved (was Angle mode level strength, limit) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
         /* Reserved (was HORIZON level strength) */
         sbufWriteU8(dst, 0);
-        /* Acro trainer */
-        sbufWriteU8(dst, currentPidProfile->trainer.gain);
-        sbufWriteU8(dst, currentPidProfile->trainer.angle_limit);
-        /* Att Hold */
-        sbufWriteU8(dst, currentPidProfile->atthold.gain);
-        sbufWriteU8(dst, currentPidProfile->atthold.deadband);
+        /* Reserved (was Acro trainer gain, angle limit) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        /* Reserved (was Att Hold gain, deadband) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
         /* B-term cutoffs */
         sbufWriteU8(dst, currentPidProfile->bterm_cutoff[0]);
         sbufWriteU8(dst, currentPidProfile->bterm_cutoff[1]);
         sbufWriteU8(dst, currentPidProfile->bterm_cutoff[2]);
-        /* Fixed-wing throttle-based gain attenuation (gain + curve index) */
+        /* Throttle-based gain attenuation (gain + curve index) */
         sbufWriteU8(dst, currentPidProfile->fw_tpa_gain);
         sbufWriteU8(dst, currentPidProfile->fw_tpa_curve);
         /* Master gain (per axis) */
@@ -2386,42 +2219,42 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, 0);
         sbufWriteU8(dst, 0);
         sbufWriteU16(dst, 0);
-        /* Cross-axis relax */
-        sbufWriteU8(dst, currentPidProfile->cross_axis_relax_strength);
-        sbufWriteU8(dst, currentPidProfile->cross_axis_relax_level);
-        sbufWriteU8(dst, currentPidProfile->cross_axis_relax_cutoff);
-        sbufWriteU8(dst, currentPidProfile->cross_axis_relax_pitch_strength);
+        /* Reserved (was Cross-axis relax strength, level, cutoff, pitch strength) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
         /* Gain curve assignment (per axis) */
         sbufWriteU8(dst, currentPidProfile->gain_curve[PID_ROLL]);
         sbufWriteU8(dst, currentPidProfile->gain_curve[PID_PITCH]);
         sbufWriteU8(dst, currentPidProfile->gain_curve[PID_YAW]);
-        /* Att Hold max rate */
-        sbufWriteU16(dst, currentPidProfile->atthold.max_rate);
+        /* Reserved (was Att Hold max rate) */
+        sbufWriteU16(dst, 0);
         /* Reserved (was Auto Hover roll deadband and throttle assist gain, max, trigger) */
         sbufWriteU8(dst, 0);
         sbufWriteU8(dst, 0);
         sbufWriteU8(dst, 0);
         sbufWriteU16(dst, 0);
-        /* API 22.4: optional per-axis attitude limits. Zero inherits the shared limit. */
-        sbufWriteU8(dst, attitudeLimits(getCurrentPidProfileIndex())->angle_roll);
-        sbufWriteU8(dst, attitudeLimits(getCurrentPidProfileIndex())->angle_pitch);
-        sbufWriteU8(dst, attitudeLimits(getCurrentPidProfileIndex())->trainer_roll);
-        sbufWriteU8(dst, attitudeLimits(getCurrentPidProfileIndex())->trainer_pitch);
+        /* Reserved (was API 22.4 per-axis ANGLE/trainer attitude limits) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
         /* API 22.10: GPS speed attenuation (separate per-profile storage) */
         sbufWriteU8(dst, fwSpaConfigs(getCurrentPidProfileIndex())->gain);
         sbufWriteU8(dst, fwSpaConfigs(getCurrentPidProfileIndex())->curve);
         sbufWriteU16(dst, fwSpaConfigs(getCurrentPidProfileIndex())->speed_max);
-        /* API 22.13: ANGLE mode rate damping (separate per-profile storage) */
-        sbufWriteU8(dst, levelConfigs(getCurrentPidProfileIndex())->damping);
-        /* Snap relax (separate per-profile storage) */
-        sbufWriteU8(dst, snapRelaxConfigs(getCurrentPidProfileIndex())->strength);
-        sbufWriteU8(dst, snapRelaxConfigs(getCurrentPidProfileIndex())->threshold);
-        sbufWriteU16(dst, snapRelaxConfigs(getCurrentPidProfileIndex())->window);
-        sbufWriteU16(dst, snapRelaxConfigs(getCurrentPidProfileIndex())->hold);
-        /* Prop-hang relax (separate per-profile storage) */
-        sbufWriteU8(dst, propHangConfigs(getCurrentPidProfileIndex())->strength);
-        sbufWriteU8(dst, propHangConfigs(getCurrentPidProfileIndex())->angle);
-        sbufWriteU16(dst, propHangConfigs(getCurrentPidProfileIndex())->fade);
+        /* Reserved (was API 22.13 ANGLE mode rate damping) */
+        sbufWriteU8(dst, 0);
+        /* Reserved (was Snap relax strength, threshold, window, hold) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        sbufWriteU16(dst, 0);
+        sbufWriteU16(dst, 0);
+        /* Reserved (was Prop-hang relax strength, angle, fade) */
+        sbufWriteU8(dst, 0);
+        sbufWriteU8(dst, 0);
+        sbufWriteU16(dst, 0);
         break;
 
     case MSP_SENSOR_CONFIG:
@@ -2804,63 +2637,6 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
             serializeBoxReply(dst, page, &serializeBoxPermanentIdFn);
         }
         break;
-#ifdef USE_TUNE_ADVISOR
-    case MSP2_WING_TUNE_ADVISOR: {
-        // One axis per request (U8 axis: 0 roll, 1 pitch, 2 yaw). Payload version 2 packs each
-        // value into as few bytes as the client needs: 48 bytes, within one CRSF frame (at most
-        // 51: a frame holds 58 bytes after a 6-byte MSP header, and sendMspReply() sends a reply
-        // that exactly fills one as two) and 11 S.Port/FBUS frames instead of 14. Counts saturate at 65535
-        // (about 11 min of 100 Hz samples); scaled values saturate at their byte's range.
-        if (sbufBytesRemaining(src) != 1) {
-            return MSP_RESULT_ERROR;
-        }
-        const uint8_t axis = sbufReadU8(src);
-        if (axis >= XYZ_AXIS_COUNT) {
-            return MSP_RESULT_ERROR;
-        }
-
-        tuneAdvisorAxis_t ta;
-        tuneAdvisorGetAxis(axis, &ta);
-
-        sbufWriteU8(dst, 2); // payload version
-        // bits 0-1 axis, bit 2 collecting now
-        sbufWriteU8(dst, axis | (tuneAdvisorIsCollecting() ? 0x04 : 0));
-        sbufWriteU16(dst, mspSatU16(tuneAdvisorGetValidSamples() / TA_SAMPLE_HZ));
-
-        // The tune these numbers belong to, so a client can suggest new values
-        sbufWriteU32(dst, mspPackGains(currentPidProfile->pid[axis].P, currentPidProfile->pid[axis].F,
-                                       currentPidProfile->pid[axis].B));
-        sbufWriteU8(dst, currentPidProfile->iterm_relax[axis]);
-        sbufWriteU8(dst, currentControlRateProfile->rcRates[axis]);
-
-        sbufWriteU16(dst, mspSatU16(ta.ffCount));
-        sbufWriteU8(dst, mspScaledU8(ta.ffGain, 64));               // x64, 0..3.98
-        sbufWriteU8(dst, mspScaledS8(ta.ffCorr, 100));              // x100, -1..1
-        sbufWriteU8(dst, MIN(ta.ffLagMs, UINT8_MAX));               // ms, 0..250
-        for (int i = 0; i < TA_SP_BAND_COUNT; i++) {
-            sbufWriteU8(dst, mspScaledU8(ta.spBand[i].gain, 64));
-            sbufWriteU16(dst, mspSatU16(ta.spBand[i].count));
-        }
-        for (int i = 0; i < TA_THR_BAND_COUNT; i++) {
-            sbufWriteU8(dst, mspScaledU8(ta.thrBand[i].gain, 64));
-            sbufWriteU16(dst, mspSatU16(ta.thrBand[i].count));
-        }
-
-        sbufWriteU16(dst, mspSatU16(ta.fullCount));
-        sbufWriteU16(dst, mspSatU16(ta.fullSatCount));
-        sbufWriteU8(dst, mspScaledU8(ta.fullRatio, 100));           // x100, 0..2.55
-        sbufWriteU8(dst, mspScaledU8(ta.fullMaxRate, 0.1f));        // 10 deg/s steps, 0..2550
-
-        sbufWriteU16(dst, ta.releases);
-        sbufWriteU16(dst, ta.bigRebounds);
-        sbufWriteU8(dst, mspScaledU8(ta.meanRebound, 100));         // x100, 0..2.55
-        sbufWriteU8(dst, mspScaledU8(ta.meanOvershoot, 64));        // x64, 0..3.98
-        sbufWriteU8(dst, mspScaledU8(ta.meanCounter, 100));         // x100, 0..2.55
-        sbufWriteU16(dst, mspRatio(ta.meanIterm));                  // x1000, signed: needs the range and the 0.01s
-        break;
-    }
-#endif
-
     case MSP_GET_MIXER_INPUT:
         {
             const int rem = sbufBytesRemaining(src);
@@ -3186,14 +2962,12 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         uint8_t srcProfileIndex = sbufReadU8(src);
         if (value == 0) {
             pidCopyProfile(dstProfileIndex, srcProfileIndex);
-            tuneAdvisorTuneChanged();
             if (!ARMING_FLAG(ARMED) && dstProfileIndex == getCurrentPidProfileIndex()) {
                 changePidProfile(dstProfileIndex);
             }
         }
         else if (value == 1) {
             copyControlRateProfile(dstProfileIndex, srcProfileIndex);
-            tuneAdvisorTuneChanged();
             if (!ARMING_FLAG(ARMED) && dstProfileIndex == getCurrentControlRateProfileIndex()) {
               changeControlRateProfile(dstProfileIndex);
             }
@@ -3253,7 +3027,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             }
         }
         pidLoadProfile(currentPidProfile);
-        tuneAdvisorTuneChanged();
         break;
 
     case MSP_SET_MODE_RANGE:
@@ -3327,7 +3100,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             currentControlRateProfile->yaw_dynamic_deadband_filter= sbufReadU8(src);
         }
         loadControlRateProfile();
-        tuneAdvisorTuneChanged();
         break;
 
 #ifdef USE_MSP_SET_MOTOR
@@ -3395,40 +3167,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         }
         break;
 
-#ifdef USE_GPS_RESCUE
-        case MSP_SET_GPS_RESCUE:
-        gpsRescueConfigMutable()->angle = sbufReadU16(src);
-        gpsRescueConfigMutable()->initialAltitudeM = sbufReadU16(src);
-        gpsRescueConfigMutable()->descentDistanceM = sbufReadU16(src);
-        gpsRescueConfigMutable()->rescueGroundspeed = sbufReadU16(src);
-        gpsRescueConfigMutable()->throttleMin = sbufReadU16(src);
-        gpsRescueConfigMutable()->throttleMax = sbufReadU16(src);
-        gpsRescueConfigMutable()->throttleHover = sbufReadU16(src);
-        gpsRescueConfigMutable()->sanityChecks = sbufReadU8(src);
-        gpsRescueConfigMutable()->minSats = sbufReadU8(src);
-        if (sbufBytesRemaining(src) >= 6) {
-            // Added in API version 1.43
-            gpsRescueConfigMutable()->ascendRate = sbufReadU16(src);
-            gpsRescueConfigMutable()->descendRate = sbufReadU16(src);
-            gpsRescueConfigMutable()->allowArmingWithoutFix = sbufReadU8(src);
-            gpsRescueConfigMutable()->altitudeMode = sbufReadU8(src);
-        }
-        if (sbufBytesRemaining(src) >= 2) {
-            // Added in API version 1.44
-            gpsRescueConfigMutable()->minRescueDth = sbufReadU16(src);
-        }
-        break;
-
-    case MSP_SET_GPS_RESCUE_PIDS:
-        gpsRescueConfigMutable()->throttleP = sbufReadU16(src);
-        gpsRescueConfigMutable()->throttleI = sbufReadU16(src);
-        gpsRescueConfigMutable()->throttleD = sbufReadU16(src);
-        gpsRescueConfigMutable()->velP = sbufReadU16(src);
-        gpsRescueConfigMutable()->velI = sbufReadU16(src);
-        gpsRescueConfigMutable()->velD = sbufReadU16(src);
-        gpsRescueConfigMutable()->yawP = sbufReadU16(src);
-        break;
-#endif
 #endif
 
 #ifdef USE_SERVOS
@@ -3578,12 +3316,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
 
     case MSP_SET_RESET_CURR_PID:
         resetPidProfile(currentPidProfile);
-        memset(attitudeLimitsMutable(getCurrentPidProfileIndex()), 0, sizeof(attitudeLimits_t));
         resetFwSpaConfig(fwSpaConfigsMutable(getCurrentPidProfileIndex()));
-        resetLevelConfig(levelConfigsMutable(getCurrentPidProfileIndex()));
-        resetSnapRelaxConfig(snapRelaxConfigsMutable(getCurrentPidProfileIndex()));
-        resetPropHangConfig(propHangConfigsMutable(getCurrentPidProfileIndex()));
-        tuneAdvisorTuneChanged();
         break;
 
     case MSP_SET_SENSOR_ALIGNMENT:
@@ -3685,18 +3418,12 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         currentPidProfile->iterm_relax[0] = sbufReadU8(src);
         currentPidProfile->iterm_relax[1] = sbufReadU8(src);
         currentPidProfile->iterm_relax[2] = sbufReadU8(src);
-        /* Angle mode */
-        currentPidProfile->angle.level_strength = sbufReadU8(src);
-        currentPidProfile->angle.level_limit = sbufReadU8(src);
-        /* Reserved (was HORIZON level strength) */
-        sbufReadU8(src);
-        /* Acro trainer */
-        currentPidProfile->trainer.gain = sbufReadU8(src);
-        currentPidProfile->trainer.angle_limit = sbufReadU8(src);
-        /* Att Hold */
+        /* Reserved (was Angle mode level strength, limit, HORIZON level strength,
+           Acro trainer gain, angle limit) */
+        sbufAdvance(src, 5);
+        /* Reserved (was Att Hold gain, deadband) */
         if (sbufBytesRemaining(src) >= 2) {
-            currentPidProfile->atthold.gain = sbufReadU8(src);
-            currentPidProfile->atthold.deadband = sbufReadU8(src);
+            sbufAdvance(src, 2);
         }
         /* B-term cutoffs */
         if (sbufBytesRemaining(src) >= 3) {
@@ -3704,7 +3431,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             currentPidProfile->bterm_cutoff[1] = sbufReadU8(src);
             currentPidProfile->bterm_cutoff[2] = sbufReadU8(src);
         }
-        /* Fixed-wing throttle-based gain attenuation (gain + curve index) */
+        /* Throttle-based gain attenuation (gain + curve index) */
         if (sbufBytesRemaining(src) >= 2) {
             currentPidProfile->fw_tpa_gain = constrain(sbufReadU8(src), 25, 200);
             currentPidProfile->fw_tpa_curve = MIN(sbufReadU8(src), GAIN_CURVE_COUNT);
@@ -3719,14 +3446,13 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         if (sbufBytesRemaining(src) >= 4) {
             sbufAdvance(src, 4);
         }
-        /* Cross-axis relax */
+        /* Reserved (was Cross-axis relax strength, level, cutoff) */
         if (sbufBytesRemaining(src) >= 3) {
-            currentPidProfile->cross_axis_relax_strength = sbufReadU8(src);
-            currentPidProfile->cross_axis_relax_level = sbufReadU8(src);
-            currentPidProfile->cross_axis_relax_cutoff = sbufReadU8(src);
+            sbufAdvance(src, 3);
         }
+        /* Reserved (was Cross-axis relax pitch strength) */
         if (sbufBytesRemaining(src) >= 1) {
-            currentPidProfile->cross_axis_relax_pitch_strength = sbufReadU8(src);
+            sbufAdvance(src, 1);
         }
         /* Gain curve assignment (per axis) */
         if (sbufBytesRemaining(src) >= 3) {
@@ -3734,9 +3460,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             currentPidProfile->gain_curve[PID_PITCH] = sbufReadU8(src);
             currentPidProfile->gain_curve[PID_YAW] = sbufReadU8(src);
         }
-        /* Att Hold max rate */
+        /* Reserved (was Att Hold max rate) */
         if (sbufBytesRemaining(src) >= 2) {
-            currentPidProfile->atthold.max_rate = sbufReadU16(src);
+            sbufAdvance(src, 2);
         }
         /* Reserved (was Auto Hover roll deadband) */
         if (sbufBytesRemaining(src) >= 1) {
@@ -3746,13 +3472,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         if (sbufBytesRemaining(src) >= 4) {
             sbufAdvance(src, 4);
         }
-        /* Older clients omit this extension and must not erase the axis limits. */
+        /* Reserved (was API 22.4 per-axis ANGLE/trainer attitude limits) */
         if (sbufBytesRemaining(src) >= 4) {
-            attitudeLimits_t *limits = attitudeLimitsMutable(getCurrentPidProfileIndex());
-            limits->angle_roll = sbufReadU8(src);
-            limits->angle_pitch = sbufReadU8(src);
-            limits->trainer_roll = sbufReadU8(src);
-            limits->trainer_pitch = sbufReadU8(src);
+            sbufAdvance(src, 4);
         }
         /* API 22.10 extension; older clients omit it and leave SPA untouched. */
         if (sbufBytesRemaining(src) >= 4) {
@@ -3761,28 +3483,20 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             spa->curve = MIN(sbufReadU8(src), GAIN_CURVE_COUNT);
             spa->speed_max = constrain(sbufReadU16(src), FW_SPA_SPEED_MAX_MIN, FW_SPA_SPEED_MAX_MAX);
         }
-        /* API 22.13 extension; older clients omit it and leave the level damping untouched. */
+        /* Reserved (was API 22.13 ANGLE mode rate damping) */
         if (sbufBytesRemaining(src) >= 1) {
-            levelConfigsMutable(getCurrentPidProfileIndex())->damping = MIN(sbufReadU8(src), LEVEL_DAMPING_MAX);
+            sbufAdvance(src, 1);
         }
-        /* Snap relax extension; older clients omit it and leave snap relax untouched. */
+        /* Reserved (was Snap relax strength, threshold, window, hold) */
         if (sbufBytesRemaining(src) >= 6) {
-            snapRelaxConfig_t *snap = snapRelaxConfigsMutable(getCurrentPidProfileIndex());
-            snap->strength = MIN(sbufReadU8(src), 100);
-            snap->threshold = constrain(sbufReadU8(src), SNAP_RELAX_THRESHOLD_MIN, 100);
-            snap->window = MIN(sbufReadU16(src), SNAP_RELAX_TIME_MAX);
-            snap->hold = MIN(sbufReadU16(src), SNAP_RELAX_TIME_MAX);
+            sbufAdvance(src, 6);
         }
-        /* Prop-hang relax extension; older clients omit it and leave prop-hang relax untouched. */
+        /* Reserved (was Prop-hang relax strength, angle, fade) */
         if (sbufBytesRemaining(src) >= 4) {
-            propHangConfig_t *hang = propHangConfigsMutable(getCurrentPidProfileIndex());
-            hang->strength = MIN(sbufReadU8(src), 100);
-            hang->angle = constrain(sbufReadU8(src), PROP_HANG_ANGLE_MIN, PROP_HANG_ANGLE_MAX);
-            hang->fade = MIN(sbufReadU16(src), PROP_HANG_FADE_MAX);
+            sbufAdvance(src, 4);
         }
         /* Load new values */
         pidLoadProfile(currentPidProfile);
-        tuneAdvisorTuneChanged();
         break;
 
     case MSP_SET_SENSOR_CONFIG:
@@ -4009,79 +3723,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         boardAlignmentMutable()->mountTrim.pitch = sbufReadS16(src);
         boardAlignmentMutable()->mountTrim.yaw = sbufReadS16(src);
         break;
-
-    case MSP2_WING_SET_TV_PID_CONFIG:
-        // PIDFB, master gains, iterm_decay_limit, eight per-axis U8 arrays,
-        // hold gain/deadband and hold max rate: 65 bytes
-        if (dataSize != PID_ITEM_COUNT * 5 * sizeof(uint16_t) + 3 * sizeof(uint16_t) + 1 + PID_AXIS_COUNT * 8
-                         + 2 * sizeof(uint8_t) + sizeof(uint16_t)) {
-            return MSP_RESULT_ERROR;
-        }
-        for (int i = 0; i < PID_ITEM_COUNT; i++) {
-            currentTvPidProfile->pid[i].P = sbufReadU16(src);
-            currentTvPidProfile->pid[i].I = sbufReadU16(src);
-            currentTvPidProfile->pid[i].D = sbufReadU16(src);
-            currentTvPidProfile->pid[i].F = sbufReadU16(src);
-            currentTvPidProfile->pid[i].B = sbufReadU16(src);
-        }
-        currentTvPidProfile->master_gain[PID_ROLL] = constrain(sbufReadU16(src), MASTER_GAIN_MIN, MASTER_GAIN_MAX);
-        currentTvPidProfile->master_gain[PID_PITCH] = constrain(sbufReadU16(src), MASTER_GAIN_MIN, MASTER_GAIN_MAX);
-        currentTvPidProfile->master_gain[PID_YAW] = constrain(sbufReadU16(src), MASTER_GAIN_MIN, MASTER_GAIN_MAX);
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->iterm_decay_time[i] = sbufReadU8(src);
-        }
-        currentTvPidProfile->iterm_decay_limit = sbufReadU8(src);
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->iterm_relax_level[i] = sbufReadU8(src);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->iterm_relax[i] = sbufReadU8(src);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->error_limit[i] = sbufReadU8(src);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->dterm_cutoff[i] = sbufReadU8(src);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->bterm_cutoff[i] = sbufReadU8(src);
-        }
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->gyro_cutoff[i] = sbufReadU8(src);
-        }
-        currentTvPidProfile->hold.gain = sbufReadU8(src);
-        currentTvPidProfile->hold.deadband = sbufReadU8(src);
-        currentTvPidProfile->hold.max_rate = sbufReadU16(src);
-        for (int i = 0; i < PID_AXIS_COUNT; i++) {
-            currentTvPidProfile->gain_curve[i] = sbufReadU8(src);
-        }
-        tvPidLoadProfile(currentTvPidProfile);
-        tvHoldInit(currentTvPidProfile);
-        break;
-
-    case MSP2_WING_SELECT_TV_PROFILE:
-        value = sbufReadU8(src);
-        if (value >= PID_PROFILE_COUNT) {
-            value = 0;
-        }
-        changeTvProfile(value);
-        break;
-
-    case MSP2_WING_COPY_TV_PID_PROFILE: {
-        if (dataSize < 2) {
-            return MSP_RESULT_ERROR;
-        }
-        const uint8_t dstTvProfileIndex = sbufReadU8(src);
-        const uint8_t srcTvProfileIndex = sbufReadU8(src);
-        if (dstTvProfileIndex < PID_PROFILE_COUNT && srcTvProfileIndex < PID_PROFILE_COUNT &&
-            dstTvProfileIndex != srcTvProfileIndex) {
-            memcpy(tvPidProfilesMutable(dstTvProfileIndex), tvPidProfiles(srcTvProfileIndex), sizeof(tvPidProfile_t));
-            if (!ARMING_FLAG(ARMED) && dstTvProfileIndex == getCurrentTvProfileIndex()) {
-                changeTvProfile(dstTvProfileIndex);
-            }
-        }
-        break;
-    }
 
     case MSP_SET_MIXER_CONFIG: {
         // Every field is read and checked before any is applied, so a
@@ -4328,26 +3969,6 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         // untouched, same pattern used elsewhere in this function (e.g. MSP_SET_TELEMETRY_CONFIG).
         if (sbufBytesRemaining(src) >= 2) {
             failsafeConfigMutable()->failsafe_recovery_delay = sbufReadU16(src);
-        }
-        break;
-
-    case MSP2_WING_SET_GPS_NAV_CONFIG:
-        if (dataSize < 12) {
-            return MSP_RESULT_ERROR;
-        }
-        gpsNavConfigMutable()->loiterRadiusM = sbufReadU16(src);
-        gpsNavConfigMutable()->loiterDirection = sbufReadU8(src);
-        gpsNavConfigMutable()->rthAltitudeM = sbufReadU16(src);
-        gpsNavConfigMutable()->minSats = sbufReadU8(src);
-        gpsNavConfigMutable()->maxBankAngleDeg = sbufReadU8(src);
-        gpsNavConfigMutable()->maxPitchAngleDeg = sbufReadU8(src);
-        gpsNavConfigMutable()->bearingKp = sbufReadU16(src);
-        gpsNavConfigMutable()->altitudeKp = sbufReadU16(src);
-        // Appended fields -- older clients that only send the bytes above leave these untouched.
-        if (sbufBytesRemaining(src) >= 4) {
-            gpsNavConfigMutable()->altitudeKd = sbufReadU16(src);
-            gpsNavConfigMutable()->throttle = sbufReadU8(src);
-            gpsNavConfigMutable()->turnCoordination = sbufReadU8(src);
         }
         break;
 
@@ -4772,27 +4393,6 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
         batteryConfigMutable()->smartfuel_charge_drop_rate = sbufReadU8(src);
         batteryConfigMutable()->smartfuel_sag_gain = sbufReadU8(src);
         smartFuelInit();
-        break;
-#endif
-
-    case MSP2_WING_SET_GOVERNOR_CONFIG:
-        if (dataSize < 14) {
-            return MSP_RESULT_ERROR;
-        }
-        governorConfigMutable()->governor_mode = sbufReadU8(src);
-        governorConfigMutable()->governor_rpm = sbufReadU16(src);
-        governorConfigMutable()->governor_gain = sbufReadU16(src);
-        governorConfigMutable()->governor_i_gain = sbufReadU16(src);
-        governorConfigMutable()->governor_throttle = sbufReadU8(src);
-        governorConfigMutable()->governor_handover = sbufReadU8(src);
-        governorConfigMutable()->governor_ceiling = sbufReadU8(src);
-        governorConfigMutable()->governor_rpm_min = sbufReadU16(src);
-        governorConfigMutable()->governor_rpm_max = sbufReadU16(src);
-        break;
-
-#ifdef USE_TUNE_ADVISOR
-    case MSP2_WING_TUNE_ADVISOR_CLEAR:
-        tuneAdvisorReset();
         break;
 #endif
 

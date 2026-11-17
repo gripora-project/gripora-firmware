@@ -115,7 +115,8 @@ void pgResetFn_mixerCurves(mixerCurve_t *curve)
     }
 }
 
-PG_REGISTER_ARRAY_WITH_RESET_FN(mixerInput_t, MIXER_INPUT_COUNT, mixerInputs, PG_GENERIC_MIXER_INPUTS, 1);
+// v2: stabilized throttle min lowered from 0 to -1000 (car throttle is signed)
+PG_REGISTER_ARRAY_WITH_RESET_FN(mixerInput_t, MIXER_INPUT_COUNT, mixerInputs, PG_GENERIC_MIXER_INPUTS, 2);
 
 void pgResetFn_mixerInputs(mixerInput_t *input)
 {
@@ -126,8 +127,9 @@ void pgResetFn_mixerInputs(mixerInput_t *input)
         input[i].max  =  1000;
     }
 
+    // Car throttle is signed: forward above neutral, brake/reverse below it
     input[MIXER_IN_STABILIZED_THROTTLE].rate =  1000;
-    input[MIXER_IN_STABILIZED_THROTTLE].min  =  0;
+    input[MIXER_IN_STABILIZED_THROTTLE].min  = -1000;
     input[MIXER_IN_STABILIZED_THROTTLE].max  =  1000;
 
     for (int i = MIXER_IN_RC_COMMAND_ROLL; i <= MIXER_IN_RC_CHANNEL_18; i++) {

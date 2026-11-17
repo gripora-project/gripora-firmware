@@ -183,8 +183,8 @@
 #define MSP_MOTOR_CONFIG                     131
 #define MSP_GPS_CONFIG                       132
 
-#define MSP_GPS_RESCUE                       135
-#define MSP_GPS_RESCUE_PIDS                  136
+#define MSP_GPS_RESCUE                       135 // removed (GPS rescue) -- id not to be reused
+#define MSP_GPS_RESCUE_PIDS                  136 // removed (GPS rescue) -- id not to be reused
 // #define MSP_VTXTABLE_BAND                    137
 // #define MSP_VTXTABLE_POWERLEVEL              138
 #define MSP_MOTOR_TELEMETRY                  139
@@ -278,8 +278,8 @@
 #define MSP_SET_LED_STRIP_MODECOLOR          221
 #define MSP_SET_MOTOR_CONFIG                 222
 #define MSP_SET_GPS_CONFIG                   223
-#define MSP_SET_GPS_RESCUE                   225
-#define MSP_SET_GPS_RESCUE_PIDS              226
+#define MSP_SET_GPS_RESCUE                   225 // removed (GPS rescue) -- id not to be reused
+#define MSP_SET_GPS_RESCUE_PIDS              226 // removed (GPS rescue) -- id not to be reused
 // #define MSP_SET_VTXTABLE_BAND                227
 // #define MSP_SET_VTXTABLE_POWERLEVEL          228
 
@@ -306,8 +306,8 @@
 #define MSP_DEBUG                            254
 
 #define MSP2_WING_BOARD_AUTO_ALIGN           0x5F00
-#define MSP2_WING_GOVERNOR_CONFIG            0x5F01
-#define MSP2_WING_SET_GOVERNOR_CONFIG        0x5F02
+#define MSP2_WING_GOVERNOR_CONFIG            0x5F01 // removed (governor) -- id not to be reused
+#define MSP2_WING_SET_GOVERNOR_CONFIG        0x5F02 // removed (governor) -- id not to be reused
 #define MSP2_WING_BOARD_MOUNT_TRIM           0x5F03
 #define MSP2_WING_SET_BOARD_MOUNT_TRIM       0x5F04
 #define MSP2_WING_BOARD_MOUNT_TRIM_AUTO      0x5F05
@@ -316,13 +316,13 @@
 #define MSP2_WING_CLEAR_FBUS_SENSORS         0x5F08
 #define MSP2_WING_FBUS_MASTER_CONFIG         0x5F09
 #define MSP2_WING_SET_FBUS_MASTER_CONFIG     0x5F0A
-#define MSP2_WING_TV_PID_CONFIG              0x5F0B
-#define MSP2_WING_SET_TV_PID_CONFIG          0x5F0C
+#define MSP2_WING_TV_PID_CONFIG              0x5F0B // removed (thrust vectoring) -- id not to be reused
+#define MSP2_WING_SET_TV_PID_CONFIG          0x5F0C // removed (thrust vectoring) -- id not to be reused
 #define MSP2_WING_RX_INPUT_BACKUP_STATUS     0x5F0D
 #define MSP2_WING_RX_INPUT_BACKUP_CONFIG     0x5F0E
 #define MSP2_WING_SET_RX_INPUT_BACKUP_CONFIG 0x5F0F
-#define MSP2_WING_SELECT_TV_PROFILE          0x5F10
-#define MSP2_WING_COPY_TV_PID_PROFILE        0x5F11
+#define MSP2_WING_SELECT_TV_PROFILE          0x5F10 // removed (thrust vectoring) -- id not to be reused
+#define MSP2_WING_COPY_TV_PID_PROFILE        0x5F11 // removed (thrust vectoring) -- id not to be reused
 #define MSP2_WING_RX_SERIAL_TRIAL             0x5F12
 #define MSP2_WING_RX_INPUT_BACKUP_TRIAL       0x5F13
 // 0x5F14, not 0x5F12/0x5F13 - see MSP2_WING_RX_SERIAL_TRIAL/
@@ -331,14 +331,10 @@
 #define MSP2_WING_ESC_SENSOR_TRIAL            0x5F14
 // 0x5F15: CRSF Sensors link diagnostics (0x5F10-0x5F14 are taken by the entries above).
 #define MSP2_WING_CRSF_SENSORS_STATUS         0x5F15
-// gpsNavConfig_t (PG_GPS_NAV) had no MSP command at all before this -- CLI-only
-// (nav_rth_altitude, nav_loiter_radius, nav_max_bank_angle, nav_max_pitch_angle,
-// nav_min_sats, nav_bearing_kp, nav_altitude_kp, nav_loiter_direction).
-#define MSP2_WING_GPS_NAV_CONFIG              0x5F16
-#define MSP2_WING_SET_GPS_NAV_CONFIG          0x5F17
-// In-flight rate-loop statistics (flight/tune_advisor.c) and their reset.
-#define MSP2_WING_TUNE_ADVISOR                0x5F18
-#define MSP2_WING_TUNE_ADVISOR_CLEAR          0x5F19
+#define MSP2_WING_GPS_NAV_CONFIG              0x5F16 // removed (GPS nav) -- id not to be reused
+#define MSP2_WING_SET_GPS_NAV_CONFIG          0x5F17 // removed (GPS nav) -- id not to be reused
+#define MSP2_WING_TUNE_ADVISOR                0x5F18 // removed (tune advisor) -- id not to be reused
+#define MSP2_WING_TUNE_ADVISOR_CLEAR          0x5F19 // removed (tune advisor) -- id not to be reused
 // Setup state, optionally with modes forced, held by a setup tool (fc/rc_modes.c). RAM only:
 // it lapses unless refreshed, blocks arming and can never be saved to EEPROM.
 #define MSP2_WING_MODE_OVERRIDE               0x5F1A
@@ -356,10 +352,8 @@
 // Applies FBUS mux channel modes at once without saving them (RAM only, lapses unless
 // refreshed, blocks arming), e.g. FBUS on one output at a time to program XACT servos.
 #define MSP2_WING_SET_FBUS_MUX_OVERRIDE       0x5F24
-// Live thrust-vector loop gains (flight/tv_pid.c), laid out like MSP2_WING_EFFECTIVE_PID_GAINS'
-// axes but without its throttle/speed attenuation, which the TV loop never applies.
 // 0x5F26, not 0x5F25: that one is taken by parameter work on an open branch.
-#define MSP2_WING_TV_EFFECTIVE_PID_GAINS      0x5F26
+#define MSP2_WING_TV_EFFECTIVE_PID_GAINS      0x5F26 // removed (thrust vectoring) -- id not to be reused
 // Per PWM servo: the rate (Hz) it really runs at and the first servo on its hardware
 // timer. Servos on one timer run at the lowest rate set among them (flight/servos.c).
 #define MSP2_WING_SERVO_TIMING                0x5F27

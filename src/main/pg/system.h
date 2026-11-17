@@ -35,7 +35,7 @@ typedef struct systemConfig_s {
     char        boardIdentifier[5];     // Four chars + EOL
     uint8_t     pidProfileIndex;
     uint8_t     activeRateProfile;
-    uint8_t     tvProfileIndex;
+    uint8_t     tvProfileIndex;         // unused (thrust vectoring removed), kept for the layout
     uint8_t     debug_mode;
     uint8_t     debug_axis;
     uint8_t     task_statistics;

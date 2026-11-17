@@ -480,24 +480,8 @@ static void crsfFlightModeInfo(char *buf)
     // Flight modes in decreasing order of importance
     if (FLIGHT_MODE(FAILSAFE_MODE)) {
         flightMode = "FAILSAFE";
-    } else if (FLIGHT_MODE(GPS_RESCUE_MODE)) {
-        flightMode = "GPS-RESCUE";
-    } else if (FLIGHT_MODE(RTH_MODE)) {
-        flightMode = "RTH";
-    } else if (FLIGHT_MODE(LOITER_MODE)) {
-        flightMode = "LOITER";
     } else if (FLIGHT_MODE(PASSTHROUGH_MODE)) {
-        flightMode = "PASSTHROUGH";
-    } else if (FLIGHT_MODE(MANUAL_MODE)) {
-        flightMode = "MANUAL";
-    } else if (FLIGHT_MODE(ATTHOLD_MODE)) {
-        flightMode = "ATT HOLD";
-    } else if (FLIGHT_MODE(AUTOTRIM_MODE)) {
-        flightMode = "AUTOTRIM";
-    } else if (FLIGHT_MODE(ANGLE_MODE)) {
-        flightMode = "ANGLE";
-    } else if (FLIGHT_MODE(TRAINER_MODE)) {
-        flightMode = "TRAINER";
+        flightMode = "GYRO OFF";
     } else {
         flightMode = "NORMAL";
     }

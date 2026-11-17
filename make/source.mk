@@ -102,30 +102,17 @@ COMMON_SRC = \
             flight/position.c \
             flight/alt_fusion.c \
             flight/failsafe.c \
-            flight/gps_rescue.c \
-            flight/gps_nav.c \
             flight/dyn_notch_filter.c \
             flight/imu.c \
             flight/mixer.c \
             flight/logic_condition.c \
             flight/pid.c \
             flight/speed_atten.c \
-            flight/tune_advisor.c \
-            flight/tv_pid.c \
             flight/rpm_filter.c \
             flight/motors.c \
-            flight/governor.c \
             flight/servos.c \
-            flight/trainer.c \
-            flight/leveling.c \
-            flight/hold_engine.c \
-            flight/atthold.c \
-            flight/tv_hold.c \
-            flight/autotrim.c \
-            flight/trim_monitor.c \
             flight/setpoint.c \
             flight/wiggle.c \
-            flight/airborne.c \
             io/serial_4way.c \
             io/serial_4way_avrootloader.c \
             io/serial_4way_stk500v2.c \
@@ -265,8 +252,6 @@ SPEED_OPTIMISED_SRC := $(SPEED_OPTIMISED_SRC) \
             flight/logic_condition.c \
             flight/pid.c \
             flight/speed_atten.c \
-            flight/tune_advisor.c \
-            flight/tv_pid.c \
             flight/rpm_filter.c \
             rx/ibus.c \
             rx/ibus2.c \

@@ -168,7 +168,7 @@ typedef enum
     TELEM_FBUS_SENSOR_7                 = 116,
     TELEM_FBUS_SENSOR_8                 = 117,
 
-    // 118 free (was TV profile, now in TELEM_SYSTEM_CONFIG)
+    // 118 free (was TV profile, removed)
     // 119 free (was GPS fix type, now in TELEM_SYSTEM_STATUS)
 
     TELEM_SYSTEM_STATUS                 = 120,  // packed live state, see telemetry/status.h

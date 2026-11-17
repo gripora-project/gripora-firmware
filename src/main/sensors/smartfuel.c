@@ -133,8 +133,8 @@ static float smartFuelChargeLevelFromVoltage(float cellVoltage)
     return constrainf(1.0f / (1.0f + exp_approx(-12.0f * (scaledVoltage - 3.7f))), 0.0f, 1.0f);
 }
 
-// Voltage sag follows current, and on a wing current follows the motors. Use the motor outputs
-// actually being sent (after governor and slew), averaged so the gain always
+// Voltage sag follows current, and current follows the motors. Use the motor outputs actually
+// being sent (after slew), as magnitudes since a reversing motor draws current too, averaged so the gain always
 // means "sag at full power on every motor". A model with no motor gets no compensation, and a
 // throttle channel that drives something else (airbrakes, say) can not inject any.
 // The gain is the sag, in volts per cell, expected at full power.
@@ -147,7 +147,7 @@ static float smartFuelApplySagCompensation(float cellVoltage)
 
     float load = 0.0f;
     for (int i = 0; i < motorCount; i++) {
-        load += constrainf(getMotorOutput(i) / 1000.0f, 0.0f, 1.0f);
+        load += constrainf(fabsf(getMotorOutput(i) / 1000.0f), 0.0f, 1.0f);
     }
     load /= motorCount;
 

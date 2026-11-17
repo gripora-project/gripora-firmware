@@ -474,7 +474,7 @@ void dynLpfUpdate(timeUs_t currentTimeUs)
     static timeUs_t lastDynLpfUpdateUs = 0;
 
     if (gyro.dynLpfFilter) {
-        const float ratio = 1.0f; // no governor/headspeed -- fixed ratio
+        const float ratio = 1.0f; // fixed ratio
         if (cmpTimeUs(currentTimeUs, lastDynLpfUpdateUs) >= DYN_LPF_UPDATE_DELAY_US) {
             const float cutoffFreq = constrainf(ratio * gyro.dynLpfHz, gyro.dynLpfMin, gyro.dynLpfMax);
             DEBUG_SET(DEBUG_DYN_LPF, 2, lrintf(cutoffFreq));

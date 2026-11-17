@@ -78,9 +78,9 @@ typedef enum {
     DEBUG_CURRENT_SENSOR,
     DEBUG_USB,
     DEBUG_UNUSED_33,    // was SMARTAUDIO -- slot kept so later modes keep their numbers
-    DEBUG_RTH,
+    DEBUG_UNUSED_34,    // was RTH -- slot kept so later modes keep their numbers
     DEBUG_ITERM_RELAX,
-    DEBUG_ACRO_TRAINER,
+    DEBUG_UNUSED_36,    // was ACRO_TRAINER -- slot kept so later modes keep their numbers
     DEBUG_SETPOINT,
     DEBUG_RX_SIGNAL_LOSS,
     DEBUG_RC_RAW,
@@ -91,14 +91,14 @@ typedef enum {
     DEBUG_RPM_FILTER,
     DEBUG_RPM_SOURCE,
     DEBUG_UNUSED_46,    // was TTA -- slot kept so later modes keep their numbers
-    DEBUG_AIRBORNE,
+    DEBUG_UNUSED_47,    // was AIRBORNE -- slot kept so later modes keep their numbers
     DEBUG_DUAL_GYRO_SCALED,
     DEBUG_DSHOT_RPM_ERRORS,
     DEBUG_CRSF_LINK_STATISTICS_UPLINK,
     DEBUG_CRSF_LINK_STATISTICS_PWR,
     DEBUG_CRSF_LINK_STATISTICS_DOWN,
     DEBUG_BARO,
-    DEBUG_GPS_RESCUE_THROTTLE_PID,
+    DEBUG_UNUSED_54,    // was GPS_RESCUE_THROTTLE_PID -- slot kept so later modes keep their numbers
     DEBUG_FREQ_SENSOR,
     DEBUG_UNUSED_56,    // was FEEDFORWARD_LIMIT -- slot kept so later modes keep their numbers
     DEBUG_UNUSED_57,    // was FEEDFORWARD -- slot kept so later modes keep their numbers
@@ -124,11 +124,11 @@ typedef enum {
     DEBUG_UNUSED_77,    // was GOV_MOTOR -- slot kept so later modes keep their numbers
     DEBUG_GYRO_CALIBRATION,
     DEBUG_UNUSED_79,    // was AUTOHOVER -- slot kept so later modes keep their numbers
-    DEBUG_ATTHOLD,
-    DEBUG_TVHOLD,
+    DEBUG_UNUSED_80,    // was ATTHOLD -- slot kept so later modes keep their numbers
+    DEBUG_UNUSED_81,    // was TVHOLD -- slot kept so later modes keep their numbers
     DEBUG_GAIN_ATTEN,
-    DEBUG_SNAP_RELAX,
-    DEBUG_PROP_HANG,
+    DEBUG_UNUSED_83,    // was SNAP_RELAX -- slot kept so later modes keep their numbers
+    DEBUG_UNUSED_84,    // was PROP_HANG -- slot kept so later modes keep their numbers
     DEBUG_FBUS,
     DEBUG_COUNT
 } debugType_e;

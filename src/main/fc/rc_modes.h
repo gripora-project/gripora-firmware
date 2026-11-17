@@ -34,17 +34,17 @@ typedef enum {
     BOXARM = 0,
 
     // Flight modes
-    BOXANGLE,
+    BOXANGLE,           // reserved (removed) -- kept to avoid renumbering later ids
     BOXHORIZON,         // reserved (HORIZON removed) -- kept to avoid renumbering later ids
-    BOXTRAINER,
-    BOXATTHOLD,         // ATT HOLD: quaternion-based hold of whatever attitude the stick was released at
+    BOXTRAINER,         // reserved (removed) -- kept to avoid renumbering later ids
+    BOXATTHOLD,         // reserved (removed) -- kept to avoid renumbering later ids
     BOXALTHOLD,         // reserved (never implemented, removed) -- kept to avoid renumbering later ids
     BOXRESCUE,          // reserved (heli rescue removed) -- kept to avoid renumbering later ids
     BOXGPSRESCUE,       // reserved (redundant alias for BOXRTH removed) -- kept to avoid renumbering later ids
-    BOXLOITER,          // GPS LOITER: hold position (and altitude) around the point engaged at
-    BOXRTH,             // GPS RTH: fly to and loiter above the home position. See flight/gps_nav.c
+    BOXLOITER,          // reserved (removed) -- kept to avoid renumbering later ids
+    BOXRTH,             // reserved (removed) -- kept to avoid renumbering later ids
     BOXFAILSAFE,
-    BOXPASSTHROUGH,     // PASSTHROUGH: raw stick straight to the surfaces (was named SETUP)
+    BOXPASSTHROUGH,     // GYRO OFF: raw sticks straight to the outputs, no gyro (was named PASSTHROUGH, SETUP)
 
     BOXID_FLIGHTMODE_LAST = BOXPASSTHROUGH,
 
@@ -66,7 +66,7 @@ typedef enum {
     BOXVTXPITMODE,      // reserved (VTX removed) -- kept to avoid renumbering later ids
     BOXVTXCONTROLDISABLE, // reserved (VTX removed) -- kept to avoid renumbering later ids
     BOXSTICKCOMMANDDISABLE, // reserved (STICK COMMANDS DISABLE removed) -- kept to avoid renumbering later ids
-    BOXGOVERNOR,        // governor engage switch (repurposed from removed heli governor fallback box)
+    BOXGOVERNOR,        // reserved (removed) -- kept to avoid renumbering later ids
     BOXGOVSUSPEND,      // reserved (heli governor removed) -- kept to avoid renumbering later ids
     BOXGOVBYPASS,       // reserved (heli governor removed) -- kept to avoid renumbering later ids
     BOXUSER1,
@@ -74,19 +74,11 @@ typedef enum {
     BOXUSER3,
     BOXUSER4,
     BOXAUTOHOVER,       // reserved (AUTO HOVER removed) -- kept to avoid renumbering later ids
-    BOXMANUAL,          // MANUAL (was named GYRO OFF): same rates/expo curve as stabilised flight, but no gyro correction
-    BOXAUTOTRIM,        // AUTO TRIM: while armed, captures actual servo output over a fixed window
-                         // and writes it as the new center (see flight/autotrim.c)
-    BOXTHRUSTVECTOR,    // THRUST VECTOR: live on/off for the independent TV mixer output
-                         // -- gates the mix only, not a flight mode
-                         // (see subTaskPidController() in fc/core.c)
-    BOXTVHOLD,          // THRUST VECTOR ATTITUDE HOLD: independent quaternion attitude/heading hold for the
-                         // Thrust Vector loop only (flight/tv_hold.c) -- decoupled from the
-                         // main loop's ANGLE/ATTHOLD chain, so the vectored nozzle
-                         // can hold while control surfaces stay in plain rate/acro. Only
-                         // meaningful while BOXTHRUSTVECTOR is also active.
-    BOXTRADITIONAL,     // TRADITIONAL: forces I-term output to zero while layered on top of
-                         // whatever stabilisation is already active (see TRADITIONAL_MODE)
+    BOXMANUAL,          // reserved (removed) -- kept to avoid renumbering later ids
+    BOXAUTOTRIM,        // reserved (removed) -- kept to avoid renumbering later ids
+    BOXTHRUSTVECTOR,    // reserved (removed) -- kept to avoid renumbering later ids
+    BOXTVHOLD,          // reserved (removed) -- kept to avoid renumbering later ids
+    BOXTRADITIONAL,     // reserved (removed) -- kept to avoid renumbering later ids
 
     CHECKBOX_ITEM_COUNT,
 

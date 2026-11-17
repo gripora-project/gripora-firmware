@@ -115,14 +115,16 @@ void resetPidProfile(pidProfile_t *pidProfile)
         .dterm_cutoff = { 15, 15, 20 },
         .bterm_cutoff = { 15, 15, 20 },
         .gyro_cutoff = { 50, 50, 100 },
+        // Unused (ANGLE, acro trainer, ATT HOLD and cross-axis relax removed): defaults kept so
+        // the profile layout and stored values stay as they were
         .angle.level_strength = 40,
         .angle.level_limit = 55,
         .trainer.gain = 75,
         .trainer.angle_limit = 20,
         .trainer.lookahead_ms = 50,
-        .atthold.gain = 40,
-        .atthold.deadband = 5,
-        .atthold.max_rate = 300,
+        .atthold.gain = 40,         // unused (removed)
+        .atthold.deadband = 5,      // unused (removed)
+        .atthold.max_rate = 300,    // unused (removed)
         .cross_axis_relax_strength = 0,
         .cross_axis_relax_level = 100,
         .cross_axis_relax_cutoff = 10,
@@ -136,8 +138,6 @@ void pgResetFn_pidProfiles(pidProfile_t *pidProfiles)
         resetPidProfile(&pidProfiles[i]);
     }
 }
-
-PG_REGISTER_ARRAY(attitudeLimits_t, PID_PROFILE_COUNT, attitudeLimits, PG_ATTITUDE_LIMITS, 0);
 
 PG_REGISTER_ARRAY_WITH_RESET_FN(fwSpaConfig_t, PID_PROFILE_COUNT, fwSpaConfigs, PG_FW_SPA_CONFIG, 0);
 
@@ -157,67 +157,3 @@ void pgResetFn_fwSpaConfigs(fwSpaConfig_t *configs)
     }
 }
 
-PG_REGISTER_ARRAY_WITH_RESET_FN(levelConfig_t, PID_PROFILE_COUNT, levelConfigs, PG_LEVEL_CONFIG, 0);
-
-void resetLevelConfig(levelConfig_t *config)
-{
-    RESET_CONFIG(levelConfig_t, config,
-        .damping = 25,
-    );
-}
-
-void pgResetFn_levelConfigs(levelConfig_t *configs)
-{
-    for (int i = 0; i < PID_PROFILE_COUNT; i++) {
-        resetLevelConfig(&configs[i]);
-    }
-}
-
-// v0->v1: default hold raised from 150 to 350 ms. Pilots flying pop tops and pinwheels found
-// stability came back too abruptly at the end of the snap. This group is separate from
-// pidProfile_t, so the bump resets only the snap relax settings.
-PG_REGISTER_ARRAY_WITH_RESET_FN(snapRelaxConfig_t, PID_PROFILE_COUNT, snapRelaxConfigs, PG_SNAP_RELAX_CONFIG, 1);
-
-void resetSnapRelaxConfig(snapRelaxConfig_t *config)
-{
-    RESET_CONFIG(snapRelaxConfig_t, config,
-        .strength = 100,
-        .threshold = 60,
-        .window = 400,
-        .hold = 350,
-    );
-}
-
-void pgResetFn_snapRelaxConfigs(snapRelaxConfig_t *configs)
-{
-    for (int i = 0; i < PID_PROFILE_COUNT; i++) {
-        resetSnapRelaxConfig(&configs[i]);
-    }
-}
-
-PG_REGISTER_ARRAY_WITH_RESET_FN(propHangConfig_t, PID_PROFILE_COUNT, propHangConfigs, PG_PROP_HANG_CONFIG, 0);
-
-void resetPropHangConfig(propHangConfig_t *config)
-{
-    RESET_CONFIG(propHangConfig_t, config,
-        .strength = 100,
-        .angle = 20,
-        .fade = 500,
-    );
-}
-
-void pgResetFn_propHangConfigs(propHangConfig_t *configs)
-{
-    for (int i = 0; i < PID_PROFILE_COUNT; i++) {
-        resetPropHangConfig(&configs[i]);
-    }
-}
-
-uint8_t attitudeLimitDegrees(uint8_t override, uint8_t legacy, int axis)
-{
-    if (!override) {
-        return legacy;
-    }
-    const uint8_t maximum = axis == PID_ROLL ? 90 : 75;
-    return override < 10 ? 10 : (override > maximum ? maximum : override);
-}

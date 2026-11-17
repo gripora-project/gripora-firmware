@@ -64,10 +64,10 @@ enum {
     MIXER_IN_RC_CHANNEL_16,
     MIXER_IN_RC_CHANNEL_17,
     MIXER_IN_RC_CHANNEL_18,
-    MIXER_IN_STABILIZED_TV_ROLL,
-    MIXER_IN_STABILIZED_TV_PITCH,
-    MIXER_IN_STABILIZED_TV_YAW,
-    // Added after the thrust-vector inputs so existing input numbers stay put
+    MIXER_IN_STABILIZED_TV_ROLL,        // reserved (thrust vectoring removed) -- always zero
+    MIXER_IN_STABILIZED_TV_PITCH,       // reserved (thrust vectoring removed) -- always zero
+    MIXER_IN_STABILIZED_TV_YAW,         // reserved (thrust vectoring removed) -- always zero
+    // Added after the (reserved) thrust-vector inputs so existing input numbers stay put
     MIXER_IN_RC_CHANNEL_19,
     MIXER_IN_RC_CHANNEL_20,
     MIXER_IN_RC_CHANNEL_21,

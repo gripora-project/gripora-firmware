@@ -144,10 +144,7 @@ void updateActivatedModes(void)
 bool isModeOverrideAllowed(boxId_e boxId)
 {
     switch (boxId) {
-        case BOXANGLE:
-        case BOXATTHOLD:
         case BOXPASSTHROUGH:
-        case BOXMANUAL:
             return true;
         default:
             return false;

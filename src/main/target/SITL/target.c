@@ -719,8 +719,8 @@ static float pwmConvertToInternal(uint8_t mode, float throttle)
     float value = motorConfig()->mincommand;
 
     if (mode == MOTOR_CONTROL_BIDIR) {
-        if (throttle != 0)
-            value = scaleRangef(throttle, -1, 1, motorConfig()->minthrottle, motorConfig()->maxthrottle);
+        // zero is neutral (midpoint), as in drivers/pwm_output.c
+        value = scaleRangef(constrainf(throttle, -1, 1), -1, 1, motorConfig()->minthrottle, motorConfig()->maxthrottle);
     } else {
         if (throttle > 0)
             value = scaleRangef(throttle, 0, 1, motorConfig()->minthrottle, motorConfig()->maxthrottle);

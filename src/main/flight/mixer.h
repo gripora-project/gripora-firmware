@@ -134,17 +134,6 @@ static inline bool pidAxisSaturated(uint8_t index)
     return mixerSaturated(MIXER_IN_STABILIZED_ROLL + index);
 }
 
-static inline bool tvPidAxisSaturated(uint8_t index)
-{
-    return mixerSaturated(MIXER_IN_STABILIZED_TV_ROLL + index);
-}
-
-// True if a mixer rule sends this TV axis to an output, i.e. the axis has an actuator.
-static inline bool tvPidAxisDriven(uint8_t index)
-{
-    return mixerInputUsed(MIXER_IN_STABILIZED_TV_ROLL + index);
-}
-
 static inline void mixerSaturateServoOutput(uint8_t index)
 {
     mixerSaturateOutput(mixerServoOutputIndex(index));

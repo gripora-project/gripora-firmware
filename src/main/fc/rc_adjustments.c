@@ -40,14 +40,8 @@
 #include "fc/rc.h"
 
 #include "flight/pid.h"
-#include "flight/tv_hold.h"
-#include "flight/tv_pid.h"
 #include "flight/mixer.h"
 #include "flight/servos.h"
-#include "flight/trainer.h"
-#include "flight/leveling.h"
-#include "flight/atthold.h"
-#include "flight/tune_advisor.h"
 
 #include "io/beeper.h"
 #include "io/ledstrip.h"
@@ -99,8 +93,7 @@
 // with no hold-still debounce: a bad reading can only nudge the output a little
 // before the next good one corrects it back. TRIM_CONTINUOUS_DELAY (20ms) is the fastest
 // consecutive applies can land (see the deadTime assignment below), so this yields a
-// worst-case rate of ~200us/sec -- the full +-200 range takes ~2s, matching
-// AUTOTRIM_WINDOW_MS's order of magnitude. Any real tick rate slower than that only
+// worst-case rate of ~200us/sec -- the full +-200 range takes ~2s. Any real tick rate slower than that only
 // makes the effective rate more conservative, never faster. Stepped mode is
 // unaffected: it already can't snap.
 #define SERVO_TRIM_MAX_STEP_PER_TICK 4
@@ -247,11 +240,8 @@ static const adjustmentConfig_t adjustmentConfigs[ADJUSTMENT_FUNCTION_COUNT] =
     ADJ_ENTRY(ROLL_DTERM_CUTOFF,            0, 250),
     ADJ_ENTRY(YAW_DTERM_CUTOFF,             0, 250),
 
-    ADJ_ENTRY(ANGLE_LEVEL_GAIN,             0, 200),
-    // ADJUSTMENT_HORIZON_LEVEL_GAIN (46) intentionally has no entry -- reserved.
-#ifdef USE_ACRO_TRAINER
-    ADJ_ENTRY(ACRO_TRAINER_GAIN,            25, 255),
-#endif
+    // ADJUSTMENT_ANGLE_LEVEL_GAIN (45), ADJUSTMENT_HORIZON_LEVEL_GAIN (46) and
+    // ADJUSTMENT_ACRO_TRAINER_GAIN (47) intentionally have no entry -- reserved.
 
     ADJ_ENTRY(ACC_TRIM_PITCH,               -300, 300),
     ADJ_ENTRY(ACC_TRIM_ROLL,                -300, 300),
@@ -269,45 +259,15 @@ static const adjustmentConfig_t adjustmentConfigs[ADJUSTMENT_FUNCTION_COUNT] =
     ADJ_ENTRY(ITERM_RELAX_PITCH,     ITERM_RELAX_MIN, ITERM_RELAX_MAX),
     ADJ_ENTRY(ITERM_RELAX_YAW,       ITERM_RELAX_MIN, ITERM_RELAX_MAX),
 
-    // ADJUSTMENT_AUTOHOVER_GAIN (87) intentionally has no entry -- reserved, like
-    // ADJUSTMENT_OSD_PROFILE above.
-
-    ADJ_ENTRY(ATTHOLD_GAIN,                 0, 250),
+    // Reserved, like ADJUSTMENT_OSD_PROFILE above: ADJUSTMENT_AUTOHOVER_GAIN (87) and
+    // ADJUSTMENT_ATTHOLD_GAIN (88, reserved) intentionally have no entry.
 
     ADJ_ENTRY(SERVO_TRIM_ROLL,             -200, 200),
     ADJ_ENTRY(SERVO_TRIM_PITCH,            -200, 200),
     ADJ_ENTRY(SERVO_TRIM_YAW,             -200, 200),
 
-    ADJ_ENTRY(TV_MASTER_GAIN_ROLL,          MASTER_GAIN_MIN, MASTER_GAIN_MAX),
-    ADJ_ENTRY(TV_MASTER_GAIN_PITCH,         MASTER_GAIN_MIN, MASTER_GAIN_MAX),
-    ADJ_ENTRY(TV_MASTER_GAIN_YAW,           MASTER_GAIN_MIN, MASTER_GAIN_MAX),
-
-    ADJ_ENTRY(TV_ITERM_DECAY_TIME_ROLL,     ITERM_DECAY_TIME_MIN, ITERM_DECAY_TIME_MAX),
-    ADJ_ENTRY(TV_ITERM_DECAY_TIME_PITCH,    ITERM_DECAY_TIME_MIN, ITERM_DECAY_TIME_MAX),
-    ADJ_ENTRY(TV_ITERM_DECAY_TIME_YAW,      ITERM_DECAY_TIME_MIN, ITERM_DECAY_TIME_MAX),
-    ADJ_ENTRY(TV_ITERM_RELAX_ROLL,   ITERM_RELAX_MIN, ITERM_RELAX_MAX),
-    ADJ_ENTRY(TV_ITERM_RELAX_PITCH,  ITERM_RELAX_MIN, ITERM_RELAX_MAX),
-    ADJ_ENTRY(TV_ITERM_RELAX_YAW,    ITERM_RELAX_MIN, ITERM_RELAX_MAX),
-
-    ADJ_ENTRY(TV_ROLL_P_GAIN,               0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_ROLL_I_GAIN,               0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_ROLL_D_GAIN,               0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_ROLL_F_GAIN,               0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_ROLL_B_GAIN,               0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_PITCH_P_GAIN,              0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_PITCH_I_GAIN,              0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_PITCH_D_GAIN,              0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_PITCH_F_GAIN,              0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_PITCH_B_GAIN,              0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_YAW_P_GAIN,                0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_YAW_I_GAIN,                0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_YAW_D_GAIN,                0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_YAW_F_GAIN,                0, PID_GAIN_MAX),
-    ADJ_ENTRY(TV_YAW_B_GAIN,                0, PID_GAIN_MAX),
-
-    ADJ_ENTRY(TV_HOLD_GAIN,                 0, 250),
-
-    ADJ_ENTRY(TV_PROFILE,                   1, 6),
+    // The thrust-vector functions (ADJUSTMENT_TV_*, 92-111 and 117-119, 123-125) intentionally
+    // have no entry -- reserved.
 
     // Flap compensation is signed, -1000..1000 -- applyRoleWeight()
     // (flight/mixer.c) applies it as a scale on top of each tagged rule's
@@ -384,20 +344,6 @@ static void setAdjustmentValue(const adjustmentRange_t *adjRange, const adjustme
 }
 
 /*
- * Re-read the value of every SERVO_TRIM_* adjustment range after something other
- * than the range itself has changed the saved trims (AUTO TRIM), so adjState->adjValue
- * is not left holding a stale value to compare the next step against.
- */
-void resyncServoTrimAdjustments(void)
-{
-    for (int index = 0; index < MAX_ADJUSTMENT_RANGE_COUNT; index++) {
-        if (isServoTrimAdjustment(adjustmentRanges(index)->function)) {
-            adjustmentRangeReset(index);
-        }
-    }
-}
-
-/*
  * Tracks how long the RX link has been continuously up, used by
  * processRcAdjustments() to gate SERVO_TRIM_* adjustments. Must be called on
  * every processRcAdjustments() tick (regardless of whether the signal is
@@ -427,8 +373,7 @@ static void updateAdjustmentData(int adjFunc, int value)
     if (adjFunc != ADJUSTMENT_NONE &&
         adjFunc != ADJUSTMENT_PID_PROFILE &&
         adjFunc != ADJUSTMENT_RATE_PROFILE &&
-        adjFunc != ADJUSTMENT_LED_PROFILE &&
-        adjFunc != ADJUSTMENT_TV_PROFILE)
+        adjFunc != ADJUSTMENT_LED_PROFILE)
     {
         adjustmentTime   = now;
         adjustmentName   = adjustmentConfigs[adjFunc].cfgName;
@@ -557,7 +502,6 @@ void processRcAdjustments(void)
 
                 if (adjval != adjState->adjValue) {
                     setAdjustmentValue(adjRange, adjConfig, adjval);
-                    tuneAdvisorTuneChanged();
                     adjval = getAdjustmentValue(adjRange, adjConfig);
 
                     if (adjval != adjState->adjValue) {
@@ -567,7 +511,7 @@ void processRcAdjustments(void)
                         // PID profile change does it's own confirmation, no of beeps eq profile no,
                         // a single beep here will kill that. A held stepped trim beeps only on
                         // the first step of the press, not on every repeat.
-                        if (adjFunc != ADJUSTMENT_PID_PROFILE && adjFunc != ADJUSTMENT_TV_PROFILE &&
+                        if (adjFunc != ADJUSTMENT_PID_PROFILE &&
                             !(steppedTrim && adjState->held))
                             beeperConfirmationBeeps(1);
 

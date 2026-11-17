@@ -276,7 +276,6 @@ extern uint8_t _dmaram_end__;
 #endif
 
 #if (TARGET_FLASH_SIZE > 64)
-#define USE_ACRO_TRAINER
 #define USE_BLACKBOX
 #define USE_CLI_BATCH
 #define USE_RESOURCE_MGMT
@@ -291,7 +290,6 @@ extern uint8_t _dmaram_end__;
 #define USE_SERIALRX_FPORT      // FrSky FPort
 #define USE_SERIALRX_FBUS       // FrSky FBUS/FPORT2
 #define USE_SMARTFUEL
-#define USE_TUNE_ADVISOR        // In-flight FF / bounce statistics over MSP (flight/tune_advisor.c)
 #define USE_TELEMETRY_CRSF
 #define USE_TELEMETRY_SRXL
 
@@ -361,8 +359,6 @@ extern uint8_t _dmaram_end__;
 #define USE_GPS
 #define USE_GPS_NMEA
 #define USE_GPS_UBLOX
-#define USE_GPS_RESCUE
-#define USE_GPS_NAV
 #define USE_GYRO_DLPF_EXPERIMENTAL
 #define USE_MULTI_GYRO
 #define USE_SENSOR_NAMES

@@ -51,9 +51,11 @@ typedef struct {
     uint16_t B;
 } pidf_t;
 
+// ANGLE, the acro trainer and ATT HOLD were removed. Their pidProfile_t fields below stay so the
+// profile keeps its layout (PG and MSP); nothing reads them.
 typedef struct {
     uint8_t level_strength;
-    uint8_t level_limit;           // Max angle in degrees in level mode
+    uint8_t level_limit;
 } pidAngleMode_t;
 
 // HORIZON removed: kept as 4 reserved bytes so pidProfile_t keeps its layout (PG_PID_PROFILE v15)
@@ -62,9 +64,9 @@ typedef struct {
 } pidHorizonReserved_t;
 
 typedef struct {
-    uint8_t gain;                  // The strength of the limiting. Raising may reduce overshoot but also lead to oscillation around the angle limit
-    uint8_t angle_limit;           // Acro trainer roll/pitch angle limit in degrees
-    uint16_t lookahead_ms;         // The lookahead window in milliseconds used to reduce overshoot
+    uint8_t gain;
+    uint8_t angle_limit;
+    uint16_t lookahead_ms;
 } pidTrainerMode_t;
 
 // Reserved: the removed AUTO HOVER settings occupied 10 bytes (2-byte aligned) here. Kept at the
@@ -74,17 +76,15 @@ typedef struct {
 } pidAutoHoverReserved_t;
 
 typedef struct {
-    uint8_t  gain;                 // Correction strength back to the held (frozen) attitude
-    uint8_t  deadband;             // Percent stick deflection below which the hold freezes and corrects;
-                                    // above which the target free-tracks current attitude (no correction)
-    uint16_t max_rate;             // deg/s clamp on the commanded correction rate (safety limit)
-} pidAttHoldMode_t;
+    uint8_t  gain;
+    uint8_t  deadband;
+    uint16_t max_rate;
+} pidAttHoldMode_t;     // unused (removed)
 
 #define MAX_PROFILE_NAME_LENGTH 8u
 
-// iterm_decay_time range, in 0.01 s. Capped at 1 s so the rate loop keeps rate-mode feel (longer
-// memory is what ATTHOLD is for), and no 0 = "decay off", which would silently be the most locked
-// setting at the bottom of the scale.
+// iterm_decay_time range, in 0.01 s. Capped at 1 s so the rate loop keeps rate-mode feel, and no
+// 0 = "decay off", which would silently be the most locked setting at the bottom of the scale.
 #define ITERM_DECAY_TIME_MIN    1
 #define ITERM_DECAY_TIME_MAX    100
 
@@ -136,33 +136,24 @@ typedef struct pidProfile_s {
     uint8_t             bterm_cutoff[PID_AXIS_COUNT];
     uint8_t             gyro_cutoff[PID_AXIS_COUNT];
 
-    pidAngleMode_t      angle;
+    pidAngleMode_t      angle;                     // unused (ANGLE removed)
     pidHorizonReserved_t horizon_reserved;
-    pidTrainerMode_t    trainer;
+    pidTrainerMode_t    trainer;                   // unused (acro trainer removed)
     pidAutoHoverReserved_t autohover_reserved;
-    pidAttHoldMode_t    atthold;
+    pidAttHoldMode_t    atthold;                   // unused (ATT HOLD removed)
 
-    uint8_t             cross_axis_relax_strength; // Percent max roll feedback attenuation from yaw setpoint activity
-    uint8_t             cross_axis_relax_level;    // Yaw setpoint level where max attenuation is reached
-    uint8_t             cross_axis_relax_cutoff;   // Hz smoothing cutoff for yaw setpoint detector
-    uint8_t             cross_axis_relax_pitch_strength; // Percent max pitch feedback attenuation from yaw setpoint activity
+    // unused (cross-axis relax removed)
+    uint8_t             cross_axis_relax_strength;
+    uint8_t             cross_axis_relax_level;
+    uint8_t             cross_axis_relax_cutoff;
+    uint8_t             cross_axis_relax_pitch_strength;
 
 } pidProfile_t;
 
 PG_DECLARE_ARRAY(pidProfile_t, PID_PROFILE_COUNT, pidProfiles);
 
-// Separate storage preserves existing PID profiles. Zero inherits the legacy shared limit.
-typedef struct {
-    uint8_t angle_roll;
-    uint8_t angle_pitch;
-    uint8_t trainer_roll;
-    uint8_t trainer_pitch;
-} attitudeLimits_t;
-
-PG_DECLARE_ARRAY(attitudeLimits_t, PID_PROFILE_COUNT, attitudeLimits);
-
-// GPS speed attenuation (SPA), one per PID profile. Separate storage, like
-// attitudeLimits_t, so adding it did not reset existing PID profiles.
+// GPS speed attenuation (SPA), one per PID profile. Separate storage, so adding
+// it did not reset existing PID profiles.
 // Mirrors fw_tpa_gain/fw_tpa_curve with GPS speed in place of throttle.
 #define FW_SPA_SPEED_MAX_MIN      10
 #define FW_SPA_SPEED_MAX_MAX      600
@@ -178,49 +169,3 @@ PG_DECLARE_ARRAY(fwSpaConfig_t, PID_PROFILE_COUNT, fwSpaConfigs);
 
 void resetFwSpaConfig(fwSpaConfig_t *config);
 
-// ANGLE mode settings added after the pidProfile_t layout was fixed, one per PID
-// profile. Separate storage, like fwSpaConfig_t, so adding it did not reset
-// existing PID profiles.
-#define LEVEL_DAMPING_MAX         100
-
-typedef struct {
-    uint8_t damping;     // Percent of measured roll/pitch rate subtracted from the level rate command
-} levelConfig_t;
-
-PG_DECLARE_ARRAY(levelConfig_t, PID_PROFILE_COUNT, levelConfigs);
-
-void resetLevelConfig(levelConfig_t *config);
-
-// Snap relax (pop tops, pinwheels, snaps), one per PID profile. Separate storage, like
-// levelConfig_t, so adding it did not reset existing PID profiles.
-#define SNAP_RELAX_THRESHOLD_MIN  20
-#define SNAP_RELAX_TIME_MAX       1000
-
-typedef struct {
-    uint8_t  strength;   // Percent of opposing roll/pitch/yaw feedback removed while a snap is on. 0 = off
-    uint8_t  threshold;  // Stick deflection, percent, that roll, pitch and yaw must all reach
-    uint16_t window;     // ms: all three sticks must cross the threshold within this time of each other
-    uint16_t hold;       // ms: relax fades out over this time after any stick drops below the threshold
-} snapRelaxConfig_t;
-
-PG_DECLARE_ARRAY(snapRelaxConfig_t, PID_PROFILE_COUNT, snapRelaxConfigs);
-
-void resetSnapRelaxConfig(snapRelaxConfig_t *config);
-
-// Prop-hang relax, one per PID profile. Separate storage, like snapRelaxConfig_t.
-#define PROP_HANG_ANGLE_MIN       5
-#define PROP_HANG_ANGLE_MAX       45
-#define PROP_HANG_FADE_MAX        2000
-
-typedef struct {
-    uint8_t  strength;   // Percent of roll I held back and bled off while hanging. 0 = off
-    uint8_t  angle;      // deg from vertical nose-up that still counts as a hang
-    uint16_t fade;       // ms: relax fades out over this time after the hang ends
-} propHangConfig_t;
-
-PG_DECLARE_ARRAY(propHangConfig_t, PID_PROFILE_COUNT, propHangConfigs);
-
-void resetPropHangConfig(propHangConfig_t *config);
-
-// Positive axis overrides use the SAFE-style range; zero preserves the legacy shared value.
-uint8_t attitudeLimitDegrees(uint8_t override, uint8_t legacy, int axis);

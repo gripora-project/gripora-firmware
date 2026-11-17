@@ -52,10 +52,10 @@
 static const box_t boxes[CHECKBOX_ITEM_COUNT] =
 {
     BOXITEM(BOXARM, "ARM", 0),
-    BOXITEM(BOXANGLE, "ANGLE", 1),
+//    BOXITEM(BOXANGLE, "ANGLE", 1), // reserved (removed)
 //    BOXITEM(BOXHORIZON, "HORIZON", 2), // reserved (HORIZON removed)
 //    BOXITEM(BOXALTHOLD, "ALTHOLD", 3), // reserved (never implemented)
-    BOXITEM(BOXATTHOLD, "ATT HOLD", 6),
+//    BOXITEM(BOXATTHOLD, "ATT HOLD", 6), // reserved (removed)
 //    BOXITEM(BOXANTIGRAVITY, "ANTI GRAVITY", 4),
 //    BOXITEM(BOXMAG, "MAG", 5),
 //    BOXITEM(BOXCAMSTAB, "CAMSTAB", 8),
@@ -70,7 +70,7 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT] =
 //    BOXITEM(BOXCALIB, "CALIB", 17), // reserved (never implemented)
 //    BOXITEM(BOXGOV, "GOVERNOR", 18),
 //    BOXITEM(BOXOSD, "OSD DISABLE", 19), // OSD removed
-    BOXITEM(BOXPASSTHROUGH, "PASSTHROUGH", 12),
+    BOXITEM(BOXPASSTHROUGH, "GYRO OFF", 12),
     BOXITEM(BOXTELEMETRY, "TELEMETRY", 20),
 //    BOXITEM(BOXGTUNE, "GTUNE", 21),
 //    BOXITEM(BOXRANGEFINDER, "RANGEFINDER", 22),
@@ -98,11 +98,7 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT] =
 //    BOXITEM(BOXPIDAUDIO, "PID AUDIO", 44),
 //    BOXITEM(BOXPARALYZE, "PARALYZE", 45), // reserved (PARALYZE removed)
 //    BOXITEM(BOXGPSRESCUE, "GPS RESCUE", 46), // reserved (redundant alias for BOXRTH removed)
-    // permanentId 61/62 also reserved below, near BOXTHRUSTVECTOR -- kept out of numeric order here
-    // since these predate the MANUAL/AUTOTRIM/THRUSTVECTOR cluster; see the matching note there
-    BOXITEM(BOXLOITER, "GPS LOITER", 61),
-    BOXITEM(BOXRTH, "GPS RTH", 62),
-    BOXITEM(BOXTRAINER, "TRAINER", 47),
+//    BOXITEM(BOXTRAINER, "TRAINER", 47), // reserved (removed)
 //    BOXITEM(BOXVTXCONTROLDISABLE, "VTX CONTROL DISABLE", 48),   // reserved (VTX removed)
 //    BOXITEM(BOXLAUNCHCONTROL, "LAUNCH CONTROL", 49),
 //    BOXITEM(BOXMSPOVERRIDE, "MSP OVERRIDE", 50),
@@ -110,18 +106,17 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT] =
     BOXITEM(BOXBEEPERMUTE, "BEEPER MUTE", 52),
 //    BOXITEM(BOXRESCUE, "RESCUE", 53), // heli rescue removed
 //    BOXITEM(BOXAUTOROTATION, "AUTOROTATION", 54),
-    BOXITEM(BOXGOVERNOR, "GOVERNOR", 55),
+//    BOXITEM(BOXGOVERNOR, "GOVERNOR", 55), // reserved (removed)
 //    BOXITEM(BOXGOVSUSPEND, "GOVERNOR SUSPEND", 56), // heli governor removed
 //    BOXITEM(BOXGOVBYPASS, "GOVERNOR BYPASS", 57), // heli governor removed
 //    BOXITEM(BOXAUTOHOVER, "AUTO HOVER", 58), // reserved (AUTO HOVER removed)
-    BOXITEM(BOXMANUAL, "MANUAL", 59),
-    BOXITEM(BOXAUTOTRIM, "AUTO TRIM", 60),
-    // permanentId 46 is BOXGPSRESCUE "GPS RESCUE" (see above) -- reserved, do not reuse
-    // permanentId 61 is BOXLOITER "GPS LOITER" (see above, near BOXGPSRESCUE) -- do not reuse
-    // permanentId 62 is BOXRTH "GPS RTH" (see above, near BOXGPSRESCUE) -- do not reuse
-    BOXITEM(BOXTHRUSTVECTOR, "THRUST VECTOR", 63),
-    BOXITEM(BOXTVHOLD, "THRUST VECTOR ATTITUDE HOLD", 64),
-    BOXITEM(BOXTRADITIONAL, "TRADITIONAL", 65),
+//    BOXITEM(BOXMANUAL, "MANUAL", 59), // reserved (removed)
+//    BOXITEM(BOXAUTOTRIM, "AUTO TRIM", 60), // reserved (removed)
+//    BOXITEM(BOXLOITER, "GPS LOITER", 61), // reserved (removed)
+//    BOXITEM(BOXRTH, "GPS RTH", 62), // reserved (removed)
+//    BOXITEM(BOXTHRUSTVECTOR, "THRUST VECTOR", 63), // reserved (removed)
+//    BOXITEM(BOXTVHOLD, "THRUST VECTOR ATTITUDE HOLD", 64), // reserved (removed)
+//    BOXITEM(BOXTRADITIONAL, "TRADITIONAL", 65), // reserved (removed)
 };
 
 // mask of enabled IDs, calculated on startup based on enabled features. boxId_e is used as bit index
@@ -210,20 +205,8 @@ void initActiveBoxIds(void)
     BME(BOXPREARM);
     BME(BOXFAILSAFE);
 
-    if (sensors(SENSOR_ACC)) {
-        BME(BOXANGLE);
-        BME(BOXATTHOLD);
-#ifdef USE_ACRO_TRAINER
-        BME(BOXTRAINER);
-#endif
-    }
-
 #ifdef USE_GPS
     if (gpsIsEnabled()) {
-#ifdef USE_GPS_NAV
-        BME(BOXLOITER);
-        BME(BOXRTH);
-#endif
         BME(BOXBEEPGPSCOUNT);
     }
 #endif
@@ -245,13 +228,6 @@ void initActiveBoxIds(void)
 #endif
 
     BME(BOXPASSTHROUGH);
-    BME(BOXMANUAL);
-    BME(BOXTRADITIONAL);
-    BME(BOXAUTOTRIM);
-    BME(BOXGOVERNOR);
-
-    BME(BOXTHRUSTVECTOR);
-    BME(BOXTVHOLD);
 
 #ifdef USE_TELEMETRY
     if (featureIsEnabled(FEATURE_TELEMETRY)) {

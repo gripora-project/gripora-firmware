@@ -26,7 +26,6 @@
 
 float getSetpoint(int axis);
 float getDeflection(int axis);
-float getManualDeflection(int axis);
 
 void setpointInit(void);
 void setpointInitProfile(void);
@@ -35,8 +34,6 @@ void setpointUpdateTiming(float frameTimeUs);
 
 void setpointUpdate(void);
 
-bool isHandsOn(void);
-bool isAirborne(void);
 
 ADJFUN_DECLARE(PITCH_SP_BOOST_GAIN)
 ADJFUN_DECLARE(ROLL_SP_BOOST_GAIN)

@@ -42,11 +42,7 @@ alignsensor_unittest_SRC := \
 #		$(USER_DIR)/fc/rc_controls.c \
 #		$(USER_DIR)/fc/rc_modes.c \
 #		$(USER_DIR)/fc/runtime_config.c \
-#		$(USER_DIR)/flight/gps_rescue.c \
 #		$(USER_DIR)/common/bitarray.c
-
-#arming_prevention_unittest_DEFINES := \
-#            USE_GPS_RESCUE=
 
 atomic_unittest_SRC := \
 		$(USER_DIR)/build/atomic.c \
@@ -167,17 +163,6 @@ gps_conversion_unittest_SRC := \
 alt_fusion_unittest_SRC := \
 		$(USER_DIR)/flight/alt_fusion.c \
 		$(USER_DIR)/common/maths.c
-
-
-gps_nav_unittest_DEFINES := USE_GPS_NAV=
-
-gps_nav_unittest_SRC := \
-		$(USER_DIR)/flight/gps_nav.c \
-		$(USER_DIR)/pg/gps_nav.c \
-		$(USER_DIR)/pg/pg.c \
-		$(USER_DIR)/common/crc.c \
-		$(USER_DIR)/common/maths.c \
-		$(USER_DIR)/common/streambuf.c
 
 
 io_serial_unittest_SRC := \
@@ -427,11 +412,6 @@ pid_unittest_SRC :=  \
 		$(USER_DIR)/pg/mixer.c \
 		$(USER_DIR)/pg/rates.c
 
-airborne_unittest_SRC := \
-        $(USER_DIR)/common/filter.c \
-        $(USER_DIR)/common/maths.c \
-        $(USER_DIR)/flight/airborne.c
-
 servos_unittest_SRC := \
         $(USER_DIR)/common/curve.c \
         $(USER_DIR)/common/maths.c \
@@ -445,37 +425,11 @@ speed_atten_unittest_SRC := \
         $(USER_DIR)/common/maths.c \
         $(USER_DIR)/flight/speed_atten.c
 
-tune_advisor_unittest_SRC := \
-        $(USER_DIR)/flight/tune_advisor.c
-
 fbus_sensor_unittest_SRC := \
         $(USER_DIR)/drivers/fbus_sensor.c
 
 fbus_sensor_unittest_DEFINES := \
         USE_FBUS_MASTER=
-
-trim_monitor_unittest_SRC := \
-        $(USER_DIR)/flight/trim_monitor.c
-
-trim_monitor_unittest_DEFINES := \
-        USE_SERVOS=
-
-tune_advisor_unittest_DEFINES := \
-        USE_TUNE_ADVISOR=
-
-trainer_unittest_SRC := \
-		$(USER_DIR)/common/filter.c \
-		$(USER_DIR)/common/maths.c \
-		$(USER_DIR)/flight/trainer.c \
-		$(USER_DIR)/flight/leveling.c \
-		$(USER_DIR)/pg/accel.c \
-		$(USER_DIR)/pg/pid.c \
-		$(USER_DIR)/pg/pg.c \
-		$(USER_DIR)/common/crc.c \
-		$(USER_DIR)/common/streambuf.c
-
-trainer_unittest_DEFINES := \
-		USE_ACRO_TRAINER=
 
 rx_spi_spektrum_unittest_SRC := \
 		$(USER_DIR)/rx/cyrf6936_spektrum.c \
@@ -546,9 +500,7 @@ telemetry_status_unittest_SRC := \
         $(USER_DIR)/telemetry/status.c
 
 telemetry_status_unittest_DEFINES := \
-        USE_GPS_NAV= \
-        USE_RX_INPUT_BACKUP= \
-        USE_ACRO_TRAINER=
+        USE_RX_INPUT_BACKUP=
 
 setpoint_unittest_SRC := \
         $(USER_DIR)/flight/setpoint.c \

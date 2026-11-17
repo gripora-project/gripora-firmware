@@ -130,8 +130,10 @@ static float pwmConvertToInternal(uint8_t index, uint8_t mode, float throttle)
     float value = motorConfig()->mincommand;
 
     if (mode == MOTOR_CONTROL_BIDIR) {
-        if (throttle != 0)
-            value = scaleRangef(throttle, -1, 1, motorConfig()->minthrottle, motorConfig()->maxthrottle);
+        // Reversible (car) ESC: zero is neutral, the midpoint of the endpoints. It must never be
+        // mincommand: that is full brake/reverse, and many car ESCs learn their neutral from the
+        // first pulses they see after power-up.
+        value = scaleRangef(constrainf(throttle, -1, 1), -1, 1, motorConfig()->minthrottle, motorConfig()->maxthrottle);
     }
     else {
         if (throttle > 0)

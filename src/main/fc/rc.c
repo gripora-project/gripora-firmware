@@ -60,6 +60,11 @@
 
 #define RC_THROTTLE_DEADBAND              5
 
+// Car throttle is signed around rc_center: forward above, brake/reverse below. Inputs within
+// this many microseconds of centre are neutral, so a transmitter's centre jitter never
+// creeps the car forward or drags the brake.
+#define RC_THROTTLE_NEUTRAL_DEADBAND      10
+
 
 // Legacy rcCommand for direct acceess
 FAST_DATA_ZERO_INIT float rcCommand[MAX_SUPPORTED_RC_CHANNEL_COUNT];           // -500..+500 for RPYCT, more for AUX
@@ -104,14 +109,16 @@ float getThrottle(void)
     return rc.throttle;
 }
 
+// "Throttle off" for a car is the stick at neutral (centre), not at the bottom.
 bool isThrottleOff(void)
 {
-    return (rcInput[THROTTLE] < rc.offThrottle);
+    return fabsf(rcInput[THROTTLE] - rc.center[THROTTLE]) <= rc.deadband[THROTTLE] + RC_THROTTLE_DEADBAND;
 }
 
 uint16_t getFailsafeThrottle(void)
 {
-    return rc.offThrottle - RC_THROTTLE_DEADBAND;
+    // Receiver failsafe puts the throttle channel at neutral
+    return rc.center[THROTTLE];
 }
 
 uint16_t getFailsafeCenter(void)
@@ -209,13 +216,9 @@ void updateRcCommands(void)
         DEBUG(RC_COMMAND, axis, rcCommand[axis]);
     }
 
-    // Throttle range is 0..1
-    rc.throttle = transition(rcInput[THROTTLE], rc.minThrottle, rc.maxThrottle, 0, 1);
-
-    // Legacy throttle command range is -500..500 for compatibility with other channels
-    rcCommand[THROTTLE] = rc.throttle * 1000 - 500;
-
-    DEBUG(RC_COMMAND, THROTTLE, lrintf(rc.throttle * 1000));
+    // Throttle is signed, -1..1 around rc_center (computed with the other axes above):
+    // forward above centre, brake/reverse below it.
+    rc.throttle = rc.deflection[THROTTLE];
 
     // AUX channels
     for (int axis = CONTROL_CHANNEL_COUNT; axis < MAX_SUPPORTED_RC_CHANNEL_COUNT; axis++) {
@@ -228,7 +231,7 @@ INIT_CODE void initRcProcessing(void)
     rc.deadband[0] = rcControlsConfig()->rc_roll_deadband;
     rc.deadband[1] = rcControlsConfig()->rc_pitch_deadband;
     rc.deadband[2] = rcControlsConfig()->rc_yaw_deadband;
-    rc.deadband[3] = 0;
+    rc.deadband[3] = RC_THROTTLE_NEUTRAL_DEADBAND;
 
     for (int axis = 0; axis < 4; axis++) {
         rc.center[axis] = rcControlsConfig()->rc_center;

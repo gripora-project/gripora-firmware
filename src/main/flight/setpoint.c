@@ -30,9 +30,6 @@
 #include "config/feature.h"
 
 #include "flight/pid.h"
-#include "flight/imu.h"
-#include "flight/position.h"
-#include "flight/airborne.h"
 
 #include "fc/runtime_config.h"
 #include "fc/rc.h"
@@ -51,10 +48,6 @@
 #define DYNAMIC_DEADBAND_SCALE             5e-4f
 #define DYNAMIC_DEADBAND_LIMIT             0.40f
 #define DYNAMIC_CEILING_LIMIT              0.40f
-
-// Least surface travel MANUAL gives at full stick, whatever F, rates or in-flight
-// adjustments are set to. Matches the old F-gain floor (50) at the default 250 deg/s.
-#define MANUAL_MIN_THROW                   0.30f
 
 
 typedef struct
@@ -164,39 +157,6 @@ float getDeflection(int axis)
     return sp.deflection[axis];
 }
 
-// For MANUAL mode: identical to the stabilised rate loop's setpoint - same rates/expo curve,
-// same rcRates scaling - just applied directly as surface deflection instead of driving a
-// gyro-corrected PID, since there's no gyro loop to stabilise around. Built from sp.deflection
-// (smoothing/yaw-range/response-accel applied, but before the feed-forward "boost" kick) rather
-// than sp.setpoint, since that boost only exists to sharpen the gyro-PID's rate target and has
-// no meaning here - reusing the boosted, already-curved sp.setpoint let fast stick moves push
-// past this axis's max rate and saturate early, losing the rate curve and feeling like
-// passthrough.
-//
-// Scaled through pidGetFeedforward() -- the exact same Kf*rate computation stabilised flight's
-// F-term uses -- rather than a fixed rcRates-independent ceiling (the previous approach). MANUAL
-// is meant to be "stabilised flight minus the gyro correction", and F is precisely stabilised
-// flight's non-corrective, no-gyro-feedback contribution: reusing it means MANUAL tracks however
-// F has actually been tuned for this airframe (so a well-tuned F puts MANUAL's fixed output in
-// the neighbourhood of stabilised flight's typical in-flight settled output, with the gap between
-// them being exactly the stabilisation MANUAL omits), rather than an arbitrary fraction unrelated
-// to the aircraft's real tuned response. Judged in flight, not on the bench -- a static airframe
-// never rotates far enough for stabilised mode's P-term to relax toward that same settled state,
-// so the two won't visibly match sitting on a bench either way.
-//
-// The authority that matters for a bail-out is the throw at full stick, Kf * maxRate, and a low
-// F or a low rate profile (including an in-flight rc_rate adjustment) shrinks it towards nothing.
-// So the stick shape comes from the rates/expo curve normalised to full stick, and the full-stick
-// throw is floored at MANUAL_MIN_THROW. Above the floor this is exactly Kf * rate, as before.
-float getManualDeflection(int axis)
-{
-    const float maxRate = applyRatesCurve(axis, 1.0f);
-    const float shape = (maxRate > 0) ? applyRatesCurve(axis, sp.deflection[axis]) / maxRate : sp.deflection[axis];
-    const float fullThrow = fmaxf(pidGetFeedforward(axis, maxRate), MANUAL_MIN_THROW);
-
-    return constrainf(shape * fullThrow, -1.0f, 1.0f);
-}
-
 static float setpointResponseAccel(int axis, float value)
 {
     sp.limited[axis] += limitf((value - sp.limited[axis]) * sp.responseFactor[axis], sp.responseAccel[axis]);
@@ -268,7 +228,6 @@ INIT_CODE void setpointInit(void)
     difFilterInit(&sp.yawDynamicSepointDiff, currentControlRateProfile->yaw_dynamic_deadband_cutoff, pidGetPidFrequency());
     pt1FilterInit(&sp.yawDynamicSepointLPF, currentControlRateProfile->yaw_dynamic_deadband_filter / 10.0f, pidGetPidFrequency());
 
-    airborneInit();
     setpointInitProfile();
 }
 
@@ -297,8 +256,6 @@ void setpointUpdate(void)
         DEBUG_AXIS(SETPOINT, axis, 0, SP[axis] * 1000);
     }
 
-    airborneUpdate(SP);
-
     // rcCommand[YAW] CW direction is positive, while gyro[YAW] is negative
     SP[FD_YAW] = -SP[FD_YAW];
 
@@ -326,6 +283,11 @@ void setpointUpdate(void)
 
     SP[FD_YAW] = applyRatesCurve(FD_YAW, SP[FD_YAW]);
     DEBUG_AXIS(SETPOINT, FD_YAW, 5, SP[FD_YAW]);
+
+    // Only yaw (steering) is stabilised: the roll and pitch setpoints are always zero, whatever
+    // the roll and pitch sticks do. Their deflection above is still available for the mixer.
+    SP[FD_ROLL] = 0;
+    SP[FD_PITCH] = 0;
 
     for (int axis = 0; axis < 3; axis++) {
         sp.setpoint[axis] = SP[axis];

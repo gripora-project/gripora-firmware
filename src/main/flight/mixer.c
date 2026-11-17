@@ -41,14 +41,11 @@
 #include "fc/rc.h"
 
 #include "flight/failsafe.h"
-#include "flight/gps_nav.h"
 #include "flight/pid.h"
-#include "flight/tv_pid.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
 #include "flight/wiggle.h"
 #include "flight/logic_condition.h"
-#include "flight/governor.h"
 #include "flight/setpoint.h"
 
 #include "rx/rx.h"
@@ -119,11 +116,11 @@ bool mixerInputUsed(uint8_t index)
     return false;
 }
 
-// True while PASSTHROUGH or MANUAL replaces the PID output on the stabilized roll/pitch/yaw
-// inputs. Failsafe overrides both (see mixerUpdateInputs()).
+// True while GYRO OFF (PASSTHROUGH) replaces the PID output on the stabilized yaw input.
+// Failsafe overrides it (see mixerUpdateInputs()).
 bool mixerStabilizationBypassed(void)
 {
-    return !failsafeIsActive() && (IS_RC_MODE_ACTIVE(BOXPASSTHROUGH) || IS_RC_MODE_ACTIVE(BOXMANUAL));
+    return !failsafeIsActive() && IS_RC_MODE_ACTIVE(BOXPASSTHROUGH);
 }
 
 void mixerSaturateInput(uint8_t index)
@@ -283,11 +280,11 @@ static void mixerSetInput(int index, float value)
     mixerApplyInputLimit(index, value);
 }
 
-// Writes a PASSTHROUGH/MANUAL value to a stabilized input, unless a bench override holds it.
+// Writes a GYRO OFF (PASSTHROUGH) value to a stabilized input, unless a bench override holds it.
 // Overrides only apply while disarmed (see mixerSetInput()), and a setup tool that holds an
 // axis must win over the pilot's mode switch, or the radio keeps moving the surface.
 // The same goes for a wiggle: mixerSetInput() has already put it on roll/pitch/yaw, and
-// the indication must show whatever flight mode the switches happen to select.
+// the indication must show whatever mode the switches happen to select.
 static void mixerSetBypassInput(int index, float value)
 {
     if (!ARMING_FLAG(ARMED)) {
@@ -372,85 +369,48 @@ static void mixerUpdateInputs(void)
 
     // RC channels
     // CH1-18 are contiguous from MIXER_IN_RC_CHANNEL_ROLL; CH19-24 follow the
-    // thrust-vector inputs.
+    // reserved (removed) thrust-vector inputs.
     for (int i = 0; i < MAX_SUPPORTED_RC_CHANNEL_COUNT; i++) {
         const int input = (i < 18) ? MIXER_IN_RC_CHANNEL_ROLL + i : MIXER_IN_RC_CHANNEL_19 + (i - 18);
         mixerSetInput(input, rcCommand[i] / 500);
     }
 
-    // Stabilised inputs
+    // Stabilised inputs. Only yaw (steering) is stabilised: the PID holds roll and pitch at
+    // zero, so their stabilized inputs never drive an output.
     mixerSetInput(MIXER_IN_STABILIZED_ROLL, pidGetOutput(PID_ROLL));
     mixerSetInput(MIXER_IN_STABILIZED_PITCH, pidGetOutput(PID_PITCH));
     mixerSetInput(MIXER_IN_STABILIZED_YAW, pidGetOutput(PID_YAW));
 
-    // Independent Thrust Vector stabilised inputs. Zero while BOXTHRUSTVECTOR is
-    // off (the TV loop is reset then, see subTaskPidController()), so a mixer rule
-    // referencing them is a harmless no-op until the switch is on.
-    mixerSetInput(MIXER_IN_STABILIZED_TV_ROLL, tvPidGetOutput(PID_ROLL));
-    mixerSetInput(MIXER_IN_STABILIZED_TV_PITCH, tvPidGetOutput(PID_PITCH));
-    mixerSetInput(MIXER_IN_STABILIZED_TV_YAW, tvPidGetOutput(PID_YAW));
+    // Reserved (thrust vectoring removed): kept in the input table so the ids of later inputs
+    // do not change, always zero.
+    mixerSetInput(MIXER_IN_STABILIZED_TV_ROLL, 0);
+    mixerSetInput(MIXER_IN_STABILIZED_TV_PITCH, 0);
+    mixerSetInput(MIXER_IN_STABILIZED_TV_YAW, 0);
 
-    // BOXPASSTHROUGH/BOXMANUAL bypass PID/leveling entirely, taking whatever the RC channel
-    // currently reads. During a real signal loss, aux/mode channels hold their last value
-    // (RX_FAILSAFE_MODE_HOLD is the default for them -- see rx.c), so a switch that happened to
-    // be left engaged the moment the link dropped would otherwise keep commanding raw/stale
-    // stick position straight to the surfaces for as long as failsafe is active, defeating the
-    // self-leveling failsafe.c's FAILSAFE_MODE is specifically meant to provide (see
-    // leveling.c's angleModeApply(), which FAILSAFE_MODE/RTH_MODE/GPS_RESCUE_MODE already
-    // trigger). Once failsafe is genuinely active, it takes priority over both regardless of
+    // BOXPASSTHROUGH (GYRO OFF) bypasses the PID, taking whatever the RC channel currently reads.
+    // During a real signal loss, aux/mode channels hold their last value (RX_FAILSAFE_MODE_HOLD is
+    // the default for them -- see rx.c), so a switch that happened to be left engaged the moment
+    // the link dropped would otherwise keep commanding a raw/stale stick position for as long as
+    // failsafe is active. Once failsafe is genuinely active, it takes priority regardless of
     // switch state. The PID loop stops integrating I under the same condition (pid.c).
     if (mixerStabilizationBypassed()) {
-        // BOXPASSTHROUGH mode: replace stabilized inputs with raw RC channels, bypassing the
-        // rates/expo curve as well as PID - direct radio to surfaces. Takes priority over MANUAL
-        // if both happen to be active at once.
-        if (IS_RC_MODE_ACTIVE(BOXPASSTHROUGH)) {
-            mixerSetBypassInput(MIXER_IN_STABILIZED_ROLL, mixer.input[MIXER_IN_RC_CHANNEL_ROLL]);
-            mixerSetBypassInput(MIXER_IN_STABILIZED_PITCH, mixer.input[MIXER_IN_RC_CHANNEL_PITCH]);
-            // Yaw command is reversed in setpoint.c relative to raw RC (unlike other axes);
-            // keep the same reversal here so passthrough yaw direction matches stabilized.
-            mixerSetBypassInput(MIXER_IN_STABILIZED_YAW, -mixer.input[MIXER_IN_RC_CHANNEL_YAW]);
-            // No raw RC channel is mapped to the independent TV axes, so the only safe
-            // bypass is neutral: zero the TV stabilized inputs rather than leave any
-            // TV-driven actuator still under PID stabilization during a passthrough bailout.
-            mixerSetBypassInput(MIXER_IN_STABILIZED_TV_ROLL, 0);
-            mixerSetBypassInput(MIXER_IN_STABILIZED_TV_PITCH, 0);
-            mixerSetBypassInput(MIXER_IN_STABILIZED_TV_YAW, 0);
-        }
-        // BOXMANUAL mode: replace stabilized inputs with the same rates/expo-shaped setpoint the
-        // PID rate loop targets, but skip the gyro-corrected PID output itself - same stick feel as
-        // stabilized flight, no stabilization. getManualDeflection() already matches the stabilized
-        // sign convention (yaw included), so no extra reversal is needed here.
-        else {
-            mixerSetBypassInput(MIXER_IN_STABILIZED_ROLL, getManualDeflection(FD_ROLL));
-            mixerSetBypassInput(MIXER_IN_STABILIZED_PITCH, getManualDeflection(FD_PITCH));
-            mixerSetBypassInput(MIXER_IN_STABILIZED_YAW, getManualDeflection(FD_YAW));
-        }
+        // Raw steering stick straight to the stabilized yaw input, bypassing the rates/expo curve
+        // as well as the PID. Yaw command is reversed in setpoint.c relative to raw RC (unlike
+        // other axes); keep the same reversal here so the steering direction matches stabilized.
+        mixerSetBypassInput(MIXER_IN_STABILIZED_YAW, -mixer.input[MIXER_IN_RC_CHANNEL_YAW]);
     }
 
-    // Update throttle (governor holds RPM/throttle per its configured mode when BOXGOVERNOR is engaged)
-    float throttle = getThrottle();
-#ifdef USE_GPS_NAV
-    // GPS LOITER/RTH fly at the configured nav_throttle rather than wherever the pilot's stick
-    // happened to be when the switch was flipped -- nav only commands attitude, so manual
-    // throttle left the aircraft sinking through every turn. Only once the in-flight latch has
-    // set (see INFLIGHT_MODE), so a nav switch left on while armed on the ground can't spin the
-    // motor up to cruise power.
-    if (FLIGHT_MODE(LOITER_MODE | RTH_MODE) && FLIGHT_MODE(INFLIGHT_MODE)) {
-        throttle = navGetThrottle();
-    }
-#endif
-    // While any failsafe procedure is active (auto-land, drop, or GPS rescue), command
+    // Throttle is signed, -1..1: forward above neutral, brake/reverse below it. Nothing on the
+    // way to the motor may clamp it to 0..1. While any failsafe procedure is active, command
     // failsafeGetThrottle() instead of whatever rcInput[THROTTLE] currently reads. That's
-    // normally the RX's own per-channel fallback, which by default cuts the motor. The GPS
-    // rescue phase flies home at nav_throttle, the same cruise power as a switch RTH; landing
-    // and drop use failsafe_throttle (documented "throttle level used for landing"), whose
-    // default (1000us = off) glides the aircraft down. See failsafeGetThrottle(). Once failsafe.c
-    // actually disarms (FAILSAFE_LANDED), motors.c's own independent ARMING_FLAG(ARMED) gate
-    // zeroes motor output regardless of this value, so no extra phase-gating is needed here.
+    // normally the RX's own per-channel fallback. failsafe_throttle defaults to neutral (1500us).
+    // Once failsafe.c actually disarms (FAILSAFE_LANDED), motors.c's own independent
+    // ARMING_FLAG(ARMED) gate takes over the motor output regardless of this value.
+    float throttle = getThrottle();
     if (failsafeIsActive()) {
         throttle = failsafeGetThrottle();
     }
-    mixerSetInput(MIXER_IN_STABILIZED_THROTTLE, governorApply(throttle));
+    mixerSetInput(MIXER_IN_STABILIZED_THROTTLE, throttle);
 }
 
 void mixerUpdate(timeUs_t currentTimeUs)

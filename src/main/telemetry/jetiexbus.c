@@ -154,7 +154,6 @@ const exBusSensor_t jetiExSensors[] = {
     {"Adj. Function",    "",        EX_TYPE_22b,   DECIMAL_MASK(0)},
     {"Adj. Value",       "",        EX_TYPE_22b,   DECIMAL_MASK(0)},
     {"ESC. Temp.",       "\xB0",    EX_TYPE_22b,   DECIMAL_MASK(1)},
-    {"TV Profile",       "",        EX_TYPE_22b,   DECIMAL_MASK(0)},
 };
 
 // after every 15 sensors increment the step by 2 (e.g. ...EX_VAL15, EX_VAL16 = 17) to skip the device description
@@ -189,7 +188,6 @@ enum exSensors_e {
     EX_ADJFUNC,
     EX_ADJVALUE,
     EX_ESCTEMP,
-    EX_TV_PROFILE,
 };
 
 union{
@@ -304,7 +302,6 @@ void initJetiExBusTelemetry(void)
     bitArraySet(&exSensorEnabled, EX_THROTTLE_CONTROL);
     bitArraySet(&exSensorEnabled, EX_ADJFUNC);
     bitArraySet(&exSensorEnabled, EX_ADJVALUE);
-    bitArraySet(&exSensorEnabled, EX_TV_PROFILE);
 
 
 #ifdef USE_ESC_SENSOR_TELEMETRY    
@@ -467,9 +464,6 @@ int32_t getSensorValue(uint8_t sensor)
         return getAdjustmentsRangeValue();
     break;
 
-    case EX_TV_PROFILE:
-        return getCurrentTvProfileIndex() + 1;
-    break;
 
 
 #ifdef USE_ESC_SENSOR_TELEMETRY

@@ -29,8 +29,6 @@
 struct pidProfile_s;
 extern struct pidProfile_s *currentPidProfile;
 
-struct tvPidProfile_s;
-extern struct tvPidProfile_s *currentTvPidProfile;
 
 void initEEPROM(void);
 bool resetEEPROM(bool useCustomDefaults);
@@ -48,8 +46,6 @@ bool isConfigDirty(void);
 uint8_t getCurrentPidProfileIndex(void);
 void changePidProfile(uint8_t pidProfileIndex);
 
-uint8_t getCurrentTvProfileIndex(void);
-void changeTvProfile(uint8_t tvProfileIndex);
 
 uint8_t getCurrentControlRateProfileIndex(void);
 void changeControlRateProfile(uint8_t profileIndex);

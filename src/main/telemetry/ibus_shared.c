@@ -239,9 +239,6 @@ static uint16_t getRPM(void)
 static uint16_t getMode(void)
 {
     uint16_t flightMode = 1; //Acro
-    if (FLIGHT_MODE(ANGLE_MODE)) {
-         flightMode = 0; //Stab
-    }
     if (FLIGHT_MODE(FAILSAFE_MODE)) {
         flightMode = 9; //Land
     }

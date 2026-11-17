@@ -53,8 +53,6 @@
 
 #include "flight/imu.h"
 #include "flight/pid.h"
-#include "flight/gps_rescue.h"
-#include "flight/gps_nav.h"
 
 #include "scheduler/scheduler.h"
 
@@ -371,22 +369,6 @@ bool gpsUsesFbusTransport(void)
 #else
     return false;
 #endif
-}
-
-bool gpsProviderSupportsNav(void)
-{
-    switch (gpsConfig()->provider) {
-    case GPS_MSP:
-        return true;
-    case GPS_UBLOX: {
-        // Not on a 9600 baud port: that can't reliably carry even the 5 Hz output (see
-        // gpsInitData), so fixes arrive late or not at all.
-        const serialPortConfig_t *gpsPortConfig = findSerialPortConfig(FUNCTION_GPS);
-        return !gpsPortConfig || gpsPortConfig->gps_baudrateIndex != BAUD_9600;
-    }
-    default:
-        return false;
-    }
 }
 
 bool gpsUsesCrsfTransport(void)
@@ -1110,30 +1092,16 @@ void gpsUpdate(timeUs_t currentTimeUs)
             DISABLE_STATE(GPS_FIX_HOME);
         }
     } else if (!STATE(GPS_FIX_HOME) && STATE(GPS_FIX) && gpsSol.numSat >= 5) {
-        // Armed before the fix (allowed on every re-arm, and whenever BOXRTH is not mapped
-        // or gps_rescue_allow_arming_without_fix is set): take home from the first usable
-        // fix rather than fly with none, which left BOXRTH and the GPS-RESCUE failsafe with
-        // no target -- wings level, cruise throttle, straight line away. A fix that arrives
-        // a little way into a hand launch gives a home near the launch.
+        // Armed before the fix: take home from the first usable fix rather than run with none.
         GPS_reset_home_position();
     }
 
-    uint8_t minSats = 5;
-
-#if defined(USE_GPS_RESCUE)
-    if (gpsRescueIsConfigured()) {
-        minSats = gpsRescueConfig()->minSats;
-    }
-#endif
-
-#if defined(USE_GPS_NAV)
-    updateGpsNav();
-#endif
+    const uint8_t minSats = 5;
 
     static bool hasFix = false;
     if (STATE(GPS_FIX)) {
         if (gpsIsHealthy() && gpsSol.numSat >= minSats && !hasFix) {
-            // ready beep sequence on fix or requirements for gps rescue met.
+            // ready beep sequence on fix
             beeper(BEEPER_READY_BEEP);
             hasFix = true;
         }

@@ -93,12 +93,12 @@ typedef enum {
     ADJUSTMENT_RESCUE_ALT_I_GAIN        = 43,
     ADJUSTMENT_RESCUE_ALT_D_GAIN        = 44,
 
-    // Leveling
-    ADJUSTMENT_ANGLE_LEVEL_GAIN         = 45,
+    // Leveling (removed)
+    ADJUSTMENT_ANGLE_LEVEL_GAIN         = 45,  // reserved (removed) -- do not reuse
     ADJUSTMENT_HORIZON_LEVEL_GAIN       = 46,  // reserved (HORIZON removed) -- do not reuse
-    ADJUSTMENT_ACRO_TRAINER_GAIN        = 47,
+    ADJUSTMENT_ACRO_TRAINER_GAIN        = 47,  // reserved (removed) -- do not reuse
 
-    // Governor
+    // Reserved (heli governor removed)
     ADJUSTMENT_GOV_GAIN                 = 48,
     ADJUSTMENT_GOV_P_GAIN               = 49,
     ADJUSTMENT_GOV_I_GAIN               = 50,
@@ -144,7 +144,7 @@ typedef enum {
     // Precomp cutoff
     ADJUSTMENT_YAW_PRECOMP_CUTOFF       = 75,
 
-    // Governor
+    // Reserved (heli governor removed)
     ADJUSTMENT_GOV_IDLE_THROTTLE        = 76,
     ADJUSTMENT_GOV_AUTO_THROTTLE        = 77,
     ADJUSTMENT_GOV_MAX_THROTTLE         = 78,
@@ -160,39 +160,39 @@ typedef enum {
 
     ADJUSTMENT_AUTOHOVER_GAIN            = 87,  // reserved (AUTO HOVER removed) -- do not reuse
 
-    // Att Hold
-    ADJUSTMENT_ATTHOLD_GAIN               = 88,
+    // Att Hold (removed)
+    ADJUSTMENT_ATTHOLD_GAIN               = 88,  // reserved (removed) -- do not reuse
 
     // Servo axis trim, per axis on top of the servo centers (saved when stepped, runtime-only when continuous)
     ADJUSTMENT_SERVO_TRIM_ROLL            = 89,
     ADJUSTMENT_SERVO_TRIM_PITCH           = 90,
     ADJUSTMENT_SERVO_TRIM_YAW             = 91,
 
-    // Thrust Vector -- independent PID loop
-    ADJUSTMENT_TV_MASTER_GAIN_ROLL         = 92,
-    ADJUSTMENT_TV_MASTER_GAIN_PITCH        = 93,
-    ADJUSTMENT_TV_MASTER_GAIN_YAW          = 94,
-    ADJUSTMENT_TV_ROLL_P_GAIN              = 95,
-    ADJUSTMENT_TV_ROLL_I_GAIN              = 96,
-    ADJUSTMENT_TV_ROLL_D_GAIN              = 97,
-    ADJUSTMENT_TV_ROLL_F_GAIN              = 98,
-    ADJUSTMENT_TV_ROLL_B_GAIN              = 99,
-    ADJUSTMENT_TV_PITCH_P_GAIN             = 100,
-    ADJUSTMENT_TV_PITCH_I_GAIN             = 101,
-    ADJUSTMENT_TV_PITCH_D_GAIN             = 102,
-    ADJUSTMENT_TV_PITCH_F_GAIN             = 103,
-    ADJUSTMENT_TV_PITCH_B_GAIN             = 104,
-    ADJUSTMENT_TV_YAW_P_GAIN               = 105,
-    ADJUSTMENT_TV_YAW_I_GAIN               = 106,
-    ADJUSTMENT_TV_YAW_D_GAIN               = 107,
-    ADJUSTMENT_TV_YAW_F_GAIN               = 108,
-    ADJUSTMENT_TV_YAW_B_GAIN               = 109,
+    // Thrust Vector -- independent PID loop (removed)
+    ADJUSTMENT_TV_MASTER_GAIN_ROLL         = 92,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_MASTER_GAIN_PITCH        = 93,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_MASTER_GAIN_YAW          = 94,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ROLL_P_GAIN              = 95,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ROLL_I_GAIN              = 96,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ROLL_D_GAIN              = 97,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ROLL_F_GAIN              = 98,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ROLL_B_GAIN              = 99,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_PITCH_P_GAIN             = 100,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_PITCH_I_GAIN             = 101,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_PITCH_D_GAIN             = 102,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_PITCH_F_GAIN             = 103,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_PITCH_B_GAIN             = 104,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_YAW_P_GAIN               = 105,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_YAW_I_GAIN               = 106,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_YAW_D_GAIN               = 107,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_YAW_F_GAIN               = 108,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_YAW_B_GAIN               = 109,  // reserved (removed) -- do not reuse
 
-    // Thrust Vector Attitude Hold -- independent hold engine (flight/tv_hold.c)
-    ADJUSTMENT_TV_HOLD_GAIN                 = 110,
+    // Thrust Vector Attitude Hold (removed)
+    ADJUSTMENT_TV_HOLD_GAIN                 = 110,  // reserved (removed) -- do not reuse
 
-    // Thrust Vector profile switching (independent of ADJUSTMENT_PID_PROFILE)
-    ADJUSTMENT_TV_PROFILE                   = 111,
+    // Thrust Vector profile switching (removed)
+    ADJUSTMENT_TV_PROFILE                   = 111,  // reserved (removed) -- do not reuse
 
     // Mixer rule weight, found by mixerRuleRole_e tag rather than a fixed
     // rule index (pg/mixer.h) -- lets a switch/pot live-tune a rule the
@@ -205,17 +205,17 @@ typedef enum {
     ADJUSTMENT_ITERM_DECAY_TIME_ROLL        = 114,
     ADJUSTMENT_ITERM_DECAY_TIME_PITCH       = 115,
     ADJUSTMENT_ITERM_DECAY_TIME_YAW         = 116,
-    ADJUSTMENT_TV_ITERM_DECAY_TIME_ROLL     = 117,
-    ADJUSTMENT_TV_ITERM_DECAY_TIME_PITCH    = 118,
-    ADJUSTMENT_TV_ITERM_DECAY_TIME_YAW      = 119,
+    ADJUSTMENT_TV_ITERM_DECAY_TIME_ROLL     = 117,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ITERM_DECAY_TIME_PITCH    = 118,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ITERM_DECAY_TIME_YAW      = 119,  // reserved (removed) -- do not reuse
 
     // Per-axis I-term relax score (1-10, higher = more relax, less bounce-back)
     ADJUSTMENT_ITERM_RELAX_ROLL              = 120,
     ADJUSTMENT_ITERM_RELAX_PITCH             = 121,
     ADJUSTMENT_ITERM_RELAX_YAW               = 122,
-    ADJUSTMENT_TV_ITERM_RELAX_ROLL           = 123,
-    ADJUSTMENT_TV_ITERM_RELAX_PITCH          = 124,
-    ADJUSTMENT_TV_ITERM_RELAX_YAW            = 125,
+    ADJUSTMENT_TV_ITERM_RELAX_ROLL           = 123,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ITERM_RELAX_PITCH          = 124,  // reserved (removed) -- do not reuse
+    ADJUSTMENT_TV_ITERM_RELAX_YAW            = 125,  // reserved (removed) -- do not reuse
 
     ADJUSTMENT_FUNCTION_COUNT
 } adjustmentFunc_e;
@@ -223,7 +223,6 @@ typedef enum {
 
 void adjustmentRangeInit(void);
 void adjustmentRangeReset(int index);
-void resyncServoTrimAdjustments(void);
 
 void processRcAdjustments(void);
 

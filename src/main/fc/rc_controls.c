@@ -115,7 +115,6 @@ void processRcStickPositions(void)
     // an extra guard for disarming through switch to prevent that one frame can disarm it
     static uint8_t rcDisarmTicks;
     static bool doNotRepeat;
-    static bool pendingApplyRollAndPitchTrimDeltaSave = false;
 
     // checking sticks positions
     uint8_t stTmp = 0;
@@ -259,50 +258,8 @@ void processRcStickPositions(void)
 #endif
 
 
-    if (FLIGHT_MODE(ANGLE_MODE)) {
-        // in ANGLE mode, so use sticks to apply accelerometer trims
-        rollAndPitchTrims_t accelerometerTrimsDelta;
-        memset(&accelerometerTrimsDelta, 0, sizeof(accelerometerTrimsDelta));
-
-        if (pendingApplyRollAndPitchTrimDeltaSave && ((rcSticks & COL_MASK) != COL_HI)) {
-            saveConfigAndNotify();
-            pendingApplyRollAndPitchTrimDeltaSave = false;
-            return;
-        }
-
-        bool shouldApplyRollAndPitchTrimDelta = false;
-        switch (rcSticks) {
-        case COL_HI + YAW_CE + PIT_HI + ROL_CE:
-            accelerometerTrimsDelta.values.pitch = 1;
-            shouldApplyRollAndPitchTrimDelta = true;
-            break;
-        case COL_HI + YAW_CE + PIT_LO + ROL_CE:
-            accelerometerTrimsDelta.values.pitch = -1;
-            shouldApplyRollAndPitchTrimDelta = true;
-            break;
-        case COL_HI + YAW_CE + PIT_CE + ROL_HI:
-            accelerometerTrimsDelta.values.roll = 1;
-            shouldApplyRollAndPitchTrimDelta = true;
-            break;
-        case COL_HI + YAW_CE + PIT_CE + ROL_LO:
-            accelerometerTrimsDelta.values.roll = -1;
-            shouldApplyRollAndPitchTrimDelta = true;
-            break;
-        }
-        if (shouldApplyRollAndPitchTrimDelta) {
-#if defined(USE_ACC)
-            applyAccelerometerTrimsDelta(&accelerometerTrimsDelta);
-#endif
-            pendingApplyRollAndPitchTrimDeltaSave = true;
-
-            beeperConfirmationBeeps(1);
-
-            repeatAfter(STICK_AUTOREPEAT_MS);
-
-            return;
-        }
-    } else {
-        // in ACRO mode, so use sticks to change RATE profile
+    {
+        // use sticks to change RATE profile
         switch (rcSticks) {
         case COL_HI + YAW_CE + PIT_HI + ROL_CE:
             changeControlRateProfile(0);

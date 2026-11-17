@@ -32,14 +32,15 @@
 #include "pg/pg_ids.h"
 #include "pg/motor.h"
 
-PG_REGISTER_WITH_RESET_FN(motorConfig_t, motorConfig, PG_MOTOR_CONFIG, 2);
+PG_REGISTER_WITH_RESET_FN(motorConfig_t, motorConfig, PG_MOTOR_CONFIG, 3);
 
 void pgResetFn_motorConfig(motorConfig_t *motorConfig)
 {
     motorConfig->dev.motorPwmProtocol = PWM_TYPE_STANDARD;
     motorConfig->dev.motorPwmRate = 50;
     motorConfig->dev.useUnsyncedPwm = false;
-    motorConfig->minthrottle = 1070;
+    // Car ESCs are reversible: 1000..2000us with neutral at the midpoint, 1500us
+    motorConfig->minthrottle = 1000;
     motorConfig->maxthrottle = 2000;
     motorConfig->mincommand = 1000;
 
@@ -57,6 +58,7 @@ void pgResetFn_motorConfig(motorConfig_t *motorConfig)
         motorConfig->motorRpmLpf[motorIndex] = 100;
         motorConfig->motorRpmFactor[motorIndex] = 0;
         motorConfig->motorPoleCount[motorIndex] = 0;
+        motorConfig->dev.motorControlMode[motorIndex] = MOTOR_CONTROL_BIDIR;
     }
 
     motorConfig->motor1GearRatio[0] = 1;

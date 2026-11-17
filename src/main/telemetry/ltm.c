@@ -167,16 +167,10 @@ static void ltm_sframe(void)
 {
     uint8_t lt_flightmode;
     uint8_t lt_statemode;
-    if (FLIGHT_MODE(GPS_RESCUE_MODE))
-        lt_flightmode = 9;
-    else if (FLIGHT_MODE(RTH_MODE))
-        lt_flightmode = 13;
-    else if (FLIGHT_MODE(LOITER_MODE))
-        lt_flightmode = 9;
-    else if (FLIGHT_MODE(ANGLE_MODE))
-        lt_flightmode = 2;
-    else
+    if (FLIGHT_MODE(PASSTHROUGH_MODE))
         lt_flightmode = 0;
+    else
+        lt_flightmode = 1;
 
     lt_statemode = (ARMING_FLAG(ARMED)) ? 1 : 0;
     if (failsafeIsActive())

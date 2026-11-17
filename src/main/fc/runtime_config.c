@@ -39,7 +39,7 @@ const char *armingDisableFlagNames[]= {
     "RXLOSS",
     "BADRX",
     "BOXFAILSAFE",
-    "GOVERNOR",
+    "GOVERNOR",       // reserved (removed), never set
     "CRASH",
     "THROTTLE",
     "ANGLE",
@@ -52,8 +52,8 @@ const char *armingDisableFlagNames[]= {
     "BST",
     "MSP",
     "PARALYZE",
-    "GPS",
-    "RESCUE_SW",
+    "GPS",            // reserved (removed), never set
+    "RESCUE_SW",      // reserved (removed), never set
     "RPMFILTER",
     "REBOOT_REQD",
     "DSHOT_BBANG",

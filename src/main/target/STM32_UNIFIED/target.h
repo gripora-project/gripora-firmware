@@ -252,8 +252,8 @@
 #undef USE_SDCARD
 #undef USE_SDCARD_SPI
 
-
-#undef USE_GPS
+// GPS stays on F411: USE_GPS_RESCUE used to switch it back on here (common_post.h), so
+// F411 builds have always had it. It gives the speed for GPS speed attenuation and telemetry.
 #undef USE_MAG
 
 

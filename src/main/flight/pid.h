@@ -35,23 +35,22 @@
 
 #define PID_GAIN_MAX                1000
 
-// Master gain limits, percent (100 = unscaled), for the main and thrust-vector loops. The
-// ceiling is back to the original 200: the 1000 ceiling (v8->v9) only made up for a
-// control-link setup that was wrong, and a pot mapped across 25-1000 sat at 512% when centred.
-// The floor is 0, so a gain pot can take the stabilizer to nothing. Master gain scales P, I
-// and D only, so the sticks still move the surfaces through F at 0%.
+// Master gain limits, percent (100 = unscaled). The ceiling is back to the original 200: the
+// 1000 ceiling (v8->v9) only made up for a control-link setup that was wrong, and a pot mapped
+// across 25-1000 sat at 512% when centred. The floor is 0, so a gain pot can take the
+// stabilizer to nothing. Master gain scales P, I and D only, so the stick still steers through
+// F at 0%.
 #define MASTER_GAIN_MIN             0
 #define MASTER_GAIN_MAX             200
 
-// Floor on roll/pitch/yaw F gain. F sets most of the surface deflection for a commanded rate; P
-// and I are small corrections on top (I is capped by error_limit). With the default P and I, F = 0
-// lets full stick reach only about 100 of a commanded 250 deg/s on roll and pitch, late, once I
-// has wound up. At 50, I can still make up the rest of the deflection. MANUAL (MANUAL_MODE) has
-// its own full-stick floor in setpoint.c and does not rely on this.
+// Floor on F gain. F sets most of the steering deflection for a commanded rate; P and I are small
+// corrections on top (I is capped by error_limit). With the default P and I, F = 0 lets full stick
+// reach only a fraction of the commanded rate, late, once I has wound up. At 50, I can still make
+// up the rest of the deflection.
 #define PID_F_GAIN_MIN              50
 
 // Floor on the combined throttle x GPS speed attenuation of P, D, F and B, so no TPA/SPA
-// curve can take the surfaces' stick authority away.
+// curve can take the stick's steering authority away.
 #define PID_ATTENUATION_MIN         0.25f
 
 #define FW_P_TERM_SCALE             0.00000666666f
@@ -131,27 +130,6 @@ typedef struct pid_s {
     uint8_t fwTpaCurveIndex;  // 0=none, 1..GAIN_CURVE_COUNT = gainCurves(idx-1) - see pidProfile_t.fw_tpa_curve
 
     uint8_t itermRelaxLevel[PID_AXIS_COUNT];
-    float crossAxisRelaxStrength;
-    float crossAxisRelaxPitchStrength;
-    uint8_t crossAxisRelaxLevel;
-    float crossAxisRelaxYawActivity;
-
-    float snapRelaxStrength;                    // 0..1, see snapRelaxConfig_t
-    float snapRelaxThreshold;                   // 0..1 stick deflection
-    float snapRelaxWindow;                      // s
-    float snapRelaxHold;                        // s
-    float snapAboveTime[XYZ_AXIS_COUNT];        // s since each stick crossed the threshold, 0 while below
-    float snapDirection[XYZ_AXIS_COUNT];        // Stick sign when the snap was detected
-    float snapHoldTimer;                        // s of fade-out left after the snap ended
-    bool snapActive;
-    float snapRelax;                            // Current relax amount, 0..snapRelaxStrength
-
-    float propHangStrength;                     // 0..1, see propHangConfig_t
-    float propHangCosAngle;                     // Nose-up component of the body X axis that counts as vertical
-    float propHangFade;                         // s
-    float propHangTime;                         // s the hang conditions have held, 0 while not hanging
-    float propHangFadeTimer;                    // s of fade-out left after the hang ended
-    float propHangRelax;                        // Current roll I relax, 0..propHangStrength
 
     float itermDecayRate[PID_AXIS_COUNT];
     float itermDecayLimit;
@@ -164,7 +142,6 @@ typedef struct pid_s {
     filter_t gyrorFilter[PID_AXIS_COUNT];
 
     pt1Filter_t relaxFilter[PID_AXIS_COUNT];
-    pt1Filter_t crossAxisRelaxFilter;
 
     difFilter_t dtermFilter[PID_AXIS_COUNT];
     difFilter_t btermFilter[PID_AXIS_COUNT];
@@ -190,7 +167,6 @@ float pidGetPidFrequency(void);
 
 float pidGetSetpoint(int axis);
 float pidGetOutput(int axis);
-float pidGetFeedforward(int axis, float rate);
 
 const pidAxisData_t * pidGetAxisData(void);
 float pidItermDecayRate(uint8_t decayTime);

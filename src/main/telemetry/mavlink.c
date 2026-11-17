@@ -439,12 +439,7 @@ void mavlinkSendHUDAndHeartbeat(void)
     uint8_t mavSystemType = MAV_TYPE_HELICOPTER;
 
     // Custom mode for compatibility with APM OSDs
-    uint8_t mavCustomMode = 1;  // Acro by default
-
-    if (FLIGHT_MODE(ANGLE_MODE)) {
-        mavCustomMode = 0;      //Stabilize
-        mavModes |= MAV_MODE_FLAG_STABILIZE_ENABLED;
-    }
+    const uint8_t mavCustomMode = 1;  // Acro
 
     uint8_t mavSystemState = 0;
     if (ARMING_FLAG(ARMED)) {

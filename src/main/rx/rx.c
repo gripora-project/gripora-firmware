@@ -567,7 +567,8 @@ void rxInit(void)
         validRxSignalTimeout[i] = millis() + MAX_INVALID_PULSE_TIME_MS;
     }
 
-    rcInput[THROTTLE] = RX_PWM_PULSE_MIN;
+    // Throttle starts at neutral (rc_center, set above) like the other channels: car throttle is
+    // signed, and the bottom of the range is full brake/reverse.
 
     // Initialize ARM switch to OFF position when arming via switch is defined
     // TODO - move to rc_mode.c

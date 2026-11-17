@@ -38,7 +38,7 @@ typedef enum {
     FAILSAFE_LANDED,
     FAILSAFE_RX_LOSS_MONITORING,
     FAILSAFE_RX_LOSS_RECOVERED,
-    FAILSAFE_GPS_RESCUE
+    // 6 reserved (was FAILSAFE_GPS_RESCUE, removed) -- telemetry and logs carry the phase
 } failsafePhase_e;
 
 typedef enum {
@@ -49,9 +49,6 @@ typedef enum {
 typedef enum {
     FAILSAFE_PROCEDURE_AUTO_LANDING = 0,
     FAILSAFE_PROCEDURE_DROP_IT,
-#ifdef USE_GPS_RESCUE
-    FAILSAFE_PROCEDURE_GPS_RESCUE,
-#endif
     FAILSAFE_PROCEDURE_COUNT   // must be last
 } failsafeProcedure_e;
 

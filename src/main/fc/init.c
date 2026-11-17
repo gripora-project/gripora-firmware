@@ -97,8 +97,6 @@
 #include "flight/imu.h"
 #include "flight/mixer.h"
 #include "flight/pid.h"
-#include "flight/tv_hold.h"
-#include "flight/tv_pid.h"
 #include "flight/servos.h"
 #include "flight/rpm_filter.h"
 
@@ -723,11 +721,6 @@ void init(void)
 
     // Initialize PID control
     pidInit(currentPidProfile);
-
-    // Initialize the independent Thrust Vector PID loop. Always initialised -- only
-    // its execution is gated, by BOXTHRUSTVECTOR in subTaskPidController().
-    tvPidInit(currentTvPidProfile);
-    tvHoldInit(currentTvPidProfile);
 
 #ifdef USE_SERVOS
     servoInit();

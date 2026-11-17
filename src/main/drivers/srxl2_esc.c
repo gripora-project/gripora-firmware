@@ -307,16 +307,13 @@ static uint16_t srxl2escPulseFromNormalized(float normalized, unsigned motorInde
     const motorConfig_t *config = motorConfig();
     const motorControlMode_e mode = config->dev.motorControlMode[motorIndex];
     if (mode == MOTOR_CONTROL_BIDIR) {
+        // Reversible ESC: zero is neutral (the midpoint), never mincommand (full reverse).
         const float clamped = constrainf(normalized, -1.0f, 1.0f);
-        if (clamped == 0.0f) {
-            pulseUs = (float)config->mincommand;
-        } else {
-            pulseUs = scaleRangef(clamped,
-                -1.0f,
-                1.0f,
-                (float)config->minthrottle,
-                (float)config->maxthrottle);
-        }
+        pulseUs = scaleRangef(clamped,
+            -1.0f,
+            1.0f,
+            (float)config->minthrottle,
+            (float)config->maxthrottle);
     } else {
         const float clamped = constrainf(normalized, 0.0f, 1.0f);
         if (clamped == 0.0f) {
@@ -329,7 +326,7 @@ static uint16_t srxl2escPulseFromNormalized(float normalized, unsigned motorInde
                 (float)config->maxthrottle);
         }
     }
-    pulseUs = constrainf(pulseUs, (float)config->mincommand, (float)config->maxthrottle);
+    pulseUs = constrainf(pulseUs, (float)MIN(config->mincommand, config->minthrottle), (float)config->maxthrottle);
 #else
     UNUSED(motorIndex);
     const float clamped = constrainf(normalized, 0.0f, 1.0f);

@@ -61,7 +61,8 @@ float getRcDeflection(int axis);
 float getThrottle(void);
 
 static inline float getThrottleCommand(void) { return getThrottle() * 1000; }
-static inline uint8_t getThrottlePercent(void) { return lrintf(getThrottle() * 100); }
+// Throttle is signed (brake/reverse below neutral); this is its magnitude, 0..100
+static inline uint8_t getThrottlePercent(void) { return lrintf(fminf(fabsf(getThrottle()), 1.0f) * 100); }
 
 bool isThrottleOff(void);
 

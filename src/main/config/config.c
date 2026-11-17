@@ -59,9 +59,6 @@
 #include "flight/motors.h"
 #include "flight/servos.h"
 #include "flight/position.h"
-#include "flight/tune_advisor.h"
-#include "flight/tv_pid.h"
-#include "flight/tv_hold.h"
 
 #include "io/beeper.h"
 #include "io/gps.h"
@@ -84,7 +81,6 @@
 #include "pg/freq.h"
 #include "pg/system.h"
 #include "pg/pilot.h"
-#include "pg/tv_pid.h"
 
 #include "rx/rx.h"
 #include "rx/rx_spi.h"
@@ -108,7 +104,6 @@ static bool rebootRequired = false;  // set if a config change requires a reboot
 static bool eepromWriteInProgress = false;
 
 pidProfile_t *currentPidProfile;
-tvPidProfile_t *currentTvPidProfile;
 
 #ifndef RX_SPI_DEFAULT_PROTOCOL
 #define RX_SPI_DEFAULT_PROTOCOL 0
@@ -127,16 +122,6 @@ uint8_t getCurrentPidProfileIndex(void)
 static void loadPidProfile(void)
 {
     currentPidProfile = pidProfilesMutable(systemConfig()->pidProfileIndex);
-}
-
-uint8_t getCurrentTvProfileIndex(void)
-{
-    return systemConfig()->tvProfileIndex;
-}
-
-static void loadTvProfile(void)
-{
-    currentTvPidProfile = tvPidProfilesMutable(systemConfig()->tvProfileIndex);
 }
 
 uint8_t getCurrentControlRateProfileIndex(void)
@@ -162,14 +147,11 @@ static void activateConfig(void)
 {
     loadPidProfile();
     loadControlRateProfile();
-    loadTvProfile();
 
     initRcProcessing();
     adjustmentRangeInit();
 
     pidChangeProfile(currentPidProfile);
-    tvPidLoadProfile(currentTvPidProfile);
-    tvHoldInit(currentTvPidProfile);
 
     rcControlsInit();
 
@@ -206,7 +188,7 @@ static void validateAndFixRatesSettings(void)
     }
 }
 
-// Below PID_F_GAIN_MIN, stabilized flight can no longer reach the commanded rate at full stick
+// Below PID_F_GAIN_MIN, the stabilized loop can no longer reach the commanded rate at full stick
 // (see pid.h). Lift any profile saved below the floor before it's loaded. Master gain saved
 // under the old 25-1000 limit is pulled into MASTER_GAIN_MIN-MASTER_GAIN_MAX the same way,
 // rather than resetting every profile with a PG version bump.
@@ -216,7 +198,6 @@ static void validateAndFixPidSettings(void)
         for (unsigned axis = PID_ROLL; axis <= PID_YAW; axis++) {
             pidProfilesMutable(profileIndex)->pid[axis].F = constrain(pidProfilesMutable(profileIndex)->pid[axis].F, PID_F_GAIN_MIN, PID_GAIN_MAX);
             pidProfilesMutable(profileIndex)->master_gain[axis] = constrain(pidProfilesMutable(profileIndex)->master_gain[axis], MASTER_GAIN_MIN, MASTER_GAIN_MAX);
-            tvPidProfilesMutable(profileIndex)->master_gain[axis] = constrain(tvPidProfilesMutable(profileIndex)->master_gain[axis], MASTER_GAIN_MIN, MASTER_GAIN_MAX);
         }
     }
 }
@@ -326,24 +307,21 @@ static void validateAndFixConfig(void)
         }
     }
 
-    if (!gpsIsConfigured()
-#if !defined(USE_GPS) || !defined(USE_GPS_RESCUE)
-        || true
-#endif
-        ) {
-
-#ifdef USE_GPS_RESCUE
-        if (failsafeConfig()->failsafe_procedure == FAILSAFE_PROCEDURE_GPS_RESCUE) {
-            failsafeConfigMutable()->failsafe_procedure = FAILSAFE_PROCEDURE_DROP_IT;
+    // Clear switch assignments left over from an older config for the modes that were removed
+    // (fc/rc_modes.h), so they don't sit around as dead switch mappings.
+    static const boxId_e removedBoxes[] = {
+        BOXANGLE, BOXTRAINER, BOXATTHOLD, BOXGPSRESCUE, BOXLOITER, BOXRTH, BOXGOVERNOR,     // reserved (removed)
+        BOXMANUAL, BOXAUTOTRIM, BOXTHRUSTVECTOR, BOXTVHOLD, BOXTRADITIONAL,                 // reserved (removed)
+    };
+    for (unsigned i = 0; i < ARRAYLEN(removedBoxes); i++) {
+        if (isModeActivationConditionPresent(removedBoxes[i])) {
+            removeModeActivationCondition(removedBoxes[i]);
         }
-#endif
     }
 
-    // BOXGPSRESCUE was a redundant switch alias for BOXRTH and has been retired (fc/rc_modes.h) --
-    // unconditionally (not just when GPS is unconfigured) clear any leftover assignment from an
-    // older config so it doesn't sit around as a dead switch mapping.
-    if (isModeActivationConditionPresent(BOXGPSRESCUE)) {
-        removeModeActivationCondition(BOXGPSRESCUE);
+    // 2 was GPS rescue, removed
+    if (failsafeConfig()->failsafe_procedure >= FAILSAFE_PROCEDURE_COUNT) {
+        failsafeConfigMutable()->failsafe_procedure = FAILSAFE_PROCEDURE_DROP_IT;
     }
 
 #if defined(USE_ESC_SENSOR)
@@ -735,11 +713,6 @@ void validateAndFixGyroConfig(void)
         systemConfigMutable()->pidProfileIndex = 0;
     }
     loadPidProfile();
-
-    if (systemConfig()->tvProfileIndex >= PID_PROFILE_COUNT) {
-        systemConfigMutable()->tvProfileIndex = 0;
-    }
-    loadTvProfile();
 }
 
 bool readEEPROM(void)
@@ -858,25 +831,9 @@ void changePidProfile(uint8_t pidProfileIndex)
         systemConfigMutable()->pidProfileIndex = pidProfileIndex;
         loadPidProfile();
         pidChangeProfile(currentPidProfile);
-        tuneAdvisorTuneChanged();
     }
 
     beeperConfirmationBeeps(pidProfileIndex + 1);
-}
-
-void changeTvProfile(uint8_t tvProfileIndex)
-{
-    // The config switch will cause a big enough delay in the current task to upset the scheduler
-    schedulerIgnoreTaskExecTime();
-
-    if (tvProfileIndex < PID_PROFILE_COUNT) {
-        systemConfigMutable()->tvProfileIndex = tvProfileIndex;
-        loadTvProfile();
-        tvPidLoadProfile(currentTvPidProfile);
-        tvHoldInit(currentTvPidProfile);
-    }
-
-    beeperConfirmationBeeps(tvProfileIndex + 1);
 }
 
 bool isSystemConfigured(void)

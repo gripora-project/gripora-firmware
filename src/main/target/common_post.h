@@ -222,10 +222,6 @@
 #define USE_USB_ADVANCED_PROFILES
 #endif
 
-#if defined(USE_GPS_RESCUE)
-#define USE_GPS
-#endif
-
 // Generate USE_SPI_GYRO or USE_I2C_GYRO
 #if defined(USE_GYRO_L3G4200D) || defined(USE_GYRO_MPU3050) || defined(USE_GYRO_MPU6000) || defined(USE_GYRO_MPU6050) || defined(USE_GYRO_MPU6500)
 #define USE_I2C_GYRO
@@ -304,12 +300,6 @@
 
 #if !defined(USE_BOARD_INFO)
 #undef USE_SIGNATURE
-#endif
-
-#if !defined(USE_ACC)
-#undef USE_GPS_RESCUE
-#undef USE_GPS_NAV
-#undef USE_ACRO_TRAINER
 #endif
 
 #ifndef USE_BEEPER

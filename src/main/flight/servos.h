@@ -67,7 +67,7 @@ void validateAndFixServoConfig(void);
 int servoTravelMin(uint8_t index);
 int servoTravelMax(uint8_t index);
 // Servo trim (see servos.c). Neither kind changes the center (servoParams()->mid):
-//  - saved trim (servoTrims PG): written by stepped SERVO_TRIM_* adjustments and AUTO TRIM;
+//  - saved trim (servoTrims PG): written by stepped SERVO_TRIM_* adjustments and MSP;
 //  - runtime trim: from continuous SERVO_TRIM_* adjustments, follows the pot, never saved.
 // Both together are limited to this share of the servo's scale (rneg/rpos, whichever
 // is larger), and the output stays inside the min/max travel limits.
