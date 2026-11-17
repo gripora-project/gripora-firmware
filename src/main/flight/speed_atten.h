@@ -21,10 +21,10 @@
 
 #include "pg/pid.h"
 
-// Low-pass cutoff on GPS speed. GPS arrives at 5-10 Hz; this turns its steps into a ramp.
+// Low-pass cutoff on the speed. GPS arrives at 5-10 Hz; this turns its steps into a ramp.
 #define FW_SPA_SPEED_CUTOFF_HZ    1.0f
 
-// After the fix is lost, keep the last scale this long, then ease back to 1.0.
+// After the speed is lost (no RPM source, no GPS fix), keep the last scale this long, then ease back to 1.0.
 #define FW_SPA_HOLD_TIME_S        3.0f
 
 // Scale change per second while easing: back to 1.0 after the hold, or onto the curve when
@@ -34,8 +34,9 @@
 void speedAttenReset(void);
 void speedAttenInit(const fwSpaConfig_t *config, float sampleRate);
 
-// Once per PID loop. speedAttenUpdate() reads the GPS itself; speedAttenUpdateFrom() takes
-// the fix state and speed (km/h) directly so the logic can be unit tested.
+// Once per PID loop, after driveUpdate(). speedAttenUpdate() reads the RPM wheel speed or the
+// GPS itself; speedAttenUpdateFrom() takes the speed state and speed (km/h) directly so the
+// logic can be unit tested.
 void speedAttenUpdate(float dT);
 void speedAttenUpdateFrom(bool haveFix, float speedKmh, float dT);
 

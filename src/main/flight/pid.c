@@ -50,6 +50,7 @@
 #include "fc/rc_rates.h"
 #include "fc/runtime_config.h"
 
+#include "flight/drive.h"
 #include "flight/mixer.h"
 #include "flight/rpm_filter.h"
 #include "flight/speed_atten.h"
@@ -59,6 +60,9 @@
 #include "pid.h"
 
 static FAST_DATA_ZERO_INIT pidData_t pid;
+
+// Travel direction the yaw I-term was accumulated in (flight/drive.c)
+static FAST_DATA_ZERO_INIT int8_t pidYawDirection;
 
 
 //// Access functions
@@ -519,7 +523,7 @@ void INIT_CODE pidLoadProfile(const pidProfile_t *pidProfile)
     pid.fwTpaGain = pidProfile->fw_tpa_gain * 0.01f;
     pid.fwTpaCurveIndex = pidProfile->fw_tpa_curve;
 
-    // GPS speed attenuation (separate per-profile storage, see fwSpaConfig_t)
+    // Speed attenuation, RPM or GPS speed (separate per-profile storage, see fwSpaConfig_t)
     speedAttenInit(fwSpaConfigs(getCurrentPidProfileIndex()), pid.freq);
 
     // Roll axis
@@ -577,6 +581,8 @@ void INIT_CODE pidChangeProfile(const pidProfile_t *pidProfile)
 void INIT_CODE pidInit(const pidProfile_t *pidProfile)
 {
     pidReset();
+    driveReset();
+    pidYawDirection = 1;
     speedAttenReset();
     pidSetLooptime(gyro.targetLooptime);
     pidInitFilters(pidProfile);
@@ -628,12 +634,20 @@ static float pidApplyGyroRate(uint8_t axis)
     // Get gyro rate
     float gyroRate = gyro.gyroADCf[axis];
 
-    // yaw_gyro_reverse turns the steering loop's sense of yaw around, for when the gyro
-    // corrects the wrong way (typically a transmitter with a reversed steering channel,
-    // fixed with a servo reverse). Only this loop sees it: the board orientation and the
-    // attitude estimate stay as they are.
-    if (axis == PID_YAW && pidConfig()->yaw_gyro_reverse) {
-        gyroRate = -gyroRate;
+    if (axis == PID_YAW) {
+        // yaw_gyro_reverse turns the steering loop's sense of yaw around, for when the gyro
+        // corrects the wrong way (typically a transmitter with a reversed steering channel,
+        // fixed with a servo reverse). Only this loop sees it: the board orientation and the
+        // attitude estimate stay as they are.
+        if (pidConfig()->yaw_gyro_reverse) {
+            gyroRate = -gyroRate;
+        }
+
+        // Travelling backwards the yaw response to a steering angle changes sign. The stick
+        // keeps meaning "wheel angle" (F and B are untouched), so correcting the right way
+        // in reverse is exactly negating the gyro rate the loop sees: P, I and D all follow.
+        // See flight/drive.c.
+        gyroRate *= driveGetDirection();
     }
 
     // Bandwidth limiter
@@ -725,7 +739,7 @@ float pidGetGainCurveScale(uint8_t curveIndex, uint8_t axis)
     return pidGetGainCurveScaleAt(curveIndex, pidGetGainCurvePosition(axis));
 }
 
-// Same, at a caller-supplied 0..1 position (GPS speed attenuation's speed / speed_max).
+// Same, at a caller-supplied 0..1 position (speed attenuation's speed / speed_max).
 float pidGetGainCurveScaleAt(uint8_t curveIndex, float position)
 {
     return (curveIndex > 0 && curveIndex <= GAIN_CURVE_COUNT)
@@ -743,12 +757,12 @@ static float pidThrottleAttenuation(void)
     // Mirrors masterGain + gain_curve: fwTpaGain is the baseline scale, an
     // optional curve from the same shared pool further shapes it by |throttle|
     // (0..1) instead of |stick deflection|. Throttle is signed (brake/reverse
-    // below neutral), so the curve sees its magnitude. Applied (with GPS speed)
+    // below neutral), so the curve sees its magnitude. Applied (with speed attenuation)
     // to P, D, F and B through pidSurfaceAttenuation(); not to I.
     return pid.fwTpaGain * pidGetGainCurveScaleAt(pid.fwTpaCurveIndex, fminf(fabsf(getThrottle()), 1.0f));
 }
 
-// Throttle and GPS speed attenuation together, as applied to P, D, F and B.
+// Throttle and speed attenuation together, as applied to P, D, F and B.
 // Floored so a curve point near zero, or both baselines at their minimum, can
 // never leave the steering without throw: F carries most of the stick authority,
 // so a zero here would leave the stick almost nothing to move.
@@ -808,8 +822,14 @@ static void pidApplyMode1(uint8_t axis)
     // Calculate error rate
     const float errorRate = setpoint - gyroRate;
 
-    // Throttle- and GPS speed-based gain attenuation
+    // Throttle- and speed-based gain attenuation
     const float atten = pidSurfaceAttenuation();
+
+    // Gyro correction scale from the drive state: zero at a standstill (no yaw response to
+    // correct with, so P, I and D would only wind up), reduced or off in reverse, faded in
+    // after a direction change. P, I and D only: F and B carry the stick, which must always
+    // steer the wheels.
+    const float corr = (axis == PID_YAW) ? driveGetCorrectionScale() : 1.0f;
 
     // Optional per-axis curve scaling master gain by |stick deflection|
     const float curveMult = pidAxisGainCurve(axis);
@@ -819,7 +839,7 @@ static void pidApplyMode1(uint8_t axis)
   //// P-term
 
     // Calculate P-component
-    pid.data[axis].P = pid.coef[axis].Kp * masterGain * atten * errorRate;
+    pid.data[axis].P = pid.coef[axis].Kp * masterGain * atten * corr * errorRate;
 
 
   //// D-term (gyro only)
@@ -828,7 +848,7 @@ static void pidApplyMode1(uint8_t axis)
     const float dTerm = difFilterApply(&pid.dtermFilter[axis], -gyroRate);
 
     // Calculate D-component
-    pid.data[axis].D = pid.coef[axis].Kd * masterGain * atten * dTerm;
+    pid.data[axis].D = pid.coef[axis].Kd * masterGain * atten * corr * dTerm;
 
 
   //// I-term
@@ -844,12 +864,12 @@ static void pidApplyMode1(uint8_t axis)
     // Hold the accumulation; decay below still applies as normal.
     const bool bypassed = mixerStabilizationBypassed();
 
-    // I-term change
-    const float itermDelta = (saturation || bypassed) ? 0 : itermErrorRate * pid.dT;
+    // I-term change, held in proportion to the correction scale
+    const float itermDelta = (saturation || bypassed) ? 0 : itermErrorRate * pid.dT * corr;
 
     // Calculate I-component
     pid.data[axis].axisError = limitf(pid.data[axis].axisError + itermDelta, pid.errorLimit[axis]);
-    pid.data[axis].I = pid.coef[axis].Ki * masterGain * pid.data[axis].axisError;
+    pid.data[axis].I = pid.coef[axis].Ki * masterGain * corr * pid.data[axis].axisError;
 
     // Apply error decay
     const float errorDecay = limitf(pid.data[axis].axisError * pid.itermDecayRate[axis], pid.itermDecayLimit);
@@ -894,7 +914,16 @@ void pidController(const pidProfile_t *pidProfile, timeUs_t currentTimeUs)
     UNUSED(pidProfile);
     UNUSED(currentTimeUs);
 
+    // Drive state first: the speed attenuation and the steering loop both use it
+    driveUpdate(pid.dT);
     speedAttenUpdate(pid.dT);
+
+    // The yaw I-term was accumulated for the other travel direction: drop it on a change
+    const int8_t yawDirection = driveGetDirection();
+    if (yawDirection != pidYawDirection) {
+        pidYawDirection = yawDirection;
+        pidResetAxisError(PID_YAW);
+    }
 
     DEBUG(GAIN_ATTEN, 0, lrintf(pidThrottleAttenuation() * 1000));
     DEBUG(GAIN_ATTEN, 1, lrintf(speedAttenGetScale() * 1000));

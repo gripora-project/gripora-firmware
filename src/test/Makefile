@@ -404,7 +404,9 @@ pid_unittest_SRC :=  \
 		$(USER_DIR)/drivers/accgyro/gyro_sync.c \
 		$(USER_DIR)/fc/runtime_config.c \
 		$(USER_DIR)/flight/pid.c \
+		$(USER_DIR)/flight/drive.c \
 		$(USER_DIR)/flight/speed_atten.c \
+		$(USER_DIR)/pg/drive.c \
 		$(USER_DIR)/pg/pid.c \
 		$(USER_DIR)/pg/pg.c \
 		$(USER_DIR)/common/crc.c \
@@ -424,6 +426,16 @@ speed_atten_unittest_SRC := \
         $(USER_DIR)/common/filter.c \
         $(USER_DIR)/common/maths.c \
         $(USER_DIR)/flight/speed_atten.c
+
+drive_unittest_SRC := \
+        $(USER_DIR)/build/debug.c \
+        $(USER_DIR)/common/crc.c \
+        $(USER_DIR)/common/filter.c \
+        $(USER_DIR)/common/maths.c \
+        $(USER_DIR)/common/streambuf.c \
+        $(USER_DIR)/flight/drive.c \
+        $(USER_DIR)/pg/drive.c \
+        $(USER_DIR)/pg/pg.c
 
 fbus_sensor_unittest_SRC := \
         $(USER_DIR)/drivers/fbus_sensor.c

@@ -119,4 +119,5 @@ const char * const debugModeNames[DEBUG_COUNT] = {
     DEBUG_NAME(UNUSED_83),
     DEBUG_NAME(UNUSED_84),
     DEBUG_NAME(FBUS),
+    DEBUG_NAME(DRIVE),
 };

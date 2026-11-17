@@ -84,6 +84,7 @@
 #include "fc/rc_modes.h"
 #include "fc/runtime_config.h"
 
+#include "flight/drive.h"
 #include "flight/failsafe.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
@@ -128,6 +129,7 @@
 #include "pg/servo_name.h"
 #ifdef USE_SRXL2_ESC
 #include "pg/srxl2_esc.h"
+#include "pg/drive.h"
 #endif
 
 #include "rx/rx.h"
@@ -1236,6 +1238,24 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         }
         break;
     }
+
+    case MSP2_GRIPORA_DRIVE_CONFIG:
+        sbufWriteU8(dst, driveConfig()->esc_mode);
+        sbufWriteU16(dst, driveConfig()->wheel_diameter);
+        sbufWriteU16(dst, driveConfig()->gyro_min_speed);
+        sbufWriteU16(dst, driveConfig()->gyro_full_speed);
+        sbufWriteU8(dst, driveConfig()->gyro_reverse);
+        sbufWriteU8(dst, driveConfig()->gyro_reverse_gain);
+        break;
+
+    case MSP2_GRIPORA_DRIVE_STATUS:
+        sbufWriteU8(dst, driveGetEscMode());
+        sbufWriteU8(dst, driveGetEscState());
+        sbufWriteU8(dst, (uint8_t)driveGetDirection());
+        sbufWriteU8(dst, driveSpeedKnown());
+        sbufWriteU16(dst, constrain(lrintf(driveGetSpeedKmh() * 10), 0, UINT16_MAX));
+        sbufWriteU8(dst, constrain(lrintf(driveGetCorrectionScale() * 100), 0, 100));
+        break;
 
 #ifdef USE_SERVOS
     case MSP2_WING_SERVO_NAMES:
@@ -3295,6 +3315,34 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         break;
     }
 #endif
+
+    case MSP2_GRIPORA_SET_DRIVE_CONFIG: {
+        // Every field is read and checked before any is applied, so a request that is
+        // refused changes nothing
+        if (dataSize < 9) {
+            return MSP_RESULT_ERROR;
+        }
+        const uint8_t escMode = sbufReadU8(src);
+        const uint16_t wheelDiameter = sbufReadU16(src);
+        const uint16_t gyroMinSpeed = sbufReadU16(src);
+        const uint16_t gyroFullSpeed = sbufReadU16(src);
+        const uint8_t gyroReverse = sbufReadU8(src);
+        const uint8_t gyroReverseGain = sbufReadU8(src);
+        if (escMode >= DRIVE_ESC_MODE_COUNT ||
+            wheelDiameter < DRIVE_WHEEL_DIAMETER_MIN || wheelDiameter > DRIVE_WHEEL_DIAMETER_MAX ||
+            gyroMinSpeed < DRIVE_GYRO_MIN_SPEED_MIN ||
+            gyroFullSpeed > DRIVE_GYRO_SPEED_MAX || gyroFullSpeed <= gyroMinSpeed ||
+            gyroReverse > 1 || gyroReverseGain > DRIVE_GYRO_REVERSE_GAIN_MAX) {
+            return MSP_RESULT_ERROR;
+        }
+        driveConfigMutable()->esc_mode = escMode;
+        driveConfigMutable()->wheel_diameter = wheelDiameter;
+        driveConfigMutable()->gyro_min_speed = gyroMinSpeed;
+        driveConfigMutable()->gyro_full_speed = gyroFullSpeed;
+        driveConfigMutable()->gyro_reverse = gyroReverse;
+        driveConfigMutable()->gyro_reverse_gain = gyroReverseGain;
+        break;
+    }
 
     case MSP_SET_SERVO_CENTER:
         // payload: U8 idx + U16 mid  => 3 bytes

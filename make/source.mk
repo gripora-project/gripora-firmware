@@ -107,6 +107,7 @@ COMMON_SRC = \
             flight/mixer.c \
             flight/logic_condition.c \
             flight/pid.c \
+            flight/drive.c \
             flight/speed_atten.c \
             flight/rpm_filter.c \
             flight/motors.c \
@@ -251,6 +252,7 @@ SPEED_OPTIMISED_SRC := $(SPEED_OPTIMISED_SRC) \
             flight/mixer.c \
             flight/logic_condition.c \
             flight/pid.c \
+            flight/drive.c \
             flight/speed_atten.c \
             flight/rpm_filter.c \
             rx/ibus.c \

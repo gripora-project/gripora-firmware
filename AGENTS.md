@@ -87,6 +87,11 @@ References:
 - PID mode `1` is a rate PID, run on yaw only.
 - A throttle-based gain attenuation path (`fw_tpa_gain` / `fw_tpa_curve`, on |throttle|) mirrors `master_gain`/`gain_curve`: a baseline scale further shaped by an optional curve from the same shared gain-curve pool/evaluator.
 - I-term decay naming and behavior have been adjusted for fixed-wing semantics (`iterm_decay_*`, no cyclic naming).
+- The drive state ([src/main/flight/drive.c](src/main/flight/drive.c)) estimates the travel direction (from the
+  throttle command through an ESC model, confirmed at zero speed by motor RPM when there is one) and the wheel speed
+  (motor RPM, gear ratio, tyre diameter). The steering loop negates the yaw gyro rate while reversing and scales P, I
+  and D (never F/B) by `driveGetCorrectionScale()`: zero at a standstill, reduced in reverse, faded in after a
+  direction change made without RPM. The yaw I-term is cleared on a direction change.
 
 References:
 
@@ -174,7 +179,7 @@ Feature branch dev builds embed `FC_VER_SUFFIX` from the `feature/<name>` branch
 the workflow fail with `fc_version_string_too_long`. This is a real compile failure, not a superseded run; either
 keep feature branch names short or update `.github/workflows/dev-build.yml` to truncate the generated suffix.
 
-Unit tests exist for PID, setpoint, curves, maths, speed attenuation, servos and telemetry status. The mixer,
+Unit tests exist for PID, setpoint, curves, maths, speed attenuation, drive state, servos and telemetry status. The mixer,
 failsafe and fc/core.c arming paths have none, so changes there need extra care and, where possible, a new test.
 
 ## Before Changing Flight-Control Code

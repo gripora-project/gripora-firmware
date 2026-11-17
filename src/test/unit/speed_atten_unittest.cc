@@ -27,6 +27,10 @@ gpsSolutionData_t gpsSol;
 static bool gpsSensor;
 bool sensors(uint32_t) { return gpsSensor; }
 
+// No motor RPM speed: GPS is the source here
+bool driveSpeedKnown(void) { return false; }
+float driveGetSpeedKmh(void) { return 0; }
+
 // Stand-in curve: 100% at rest falling linearly to 50% at speed_max and beyond
 float pidGetGainCurveScaleAt(uint8_t curveIndex, float position)
 {

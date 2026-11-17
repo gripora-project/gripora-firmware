@@ -378,4 +378,14 @@
 // N printable ASCII bytes (none clears it).
 #define MSP2_WING_SERVO_NAMES                 0x5F3A
 #define MSP2_WING_SET_SERVO_NAME              0x5F3B
+// Drive state (pg/drive.h, flight/drive.c): reverse and low-speed gyro correction.
+// MSP2_GRIPORA_DRIVE_CONFIG reply and MSP2_GRIPORA_SET_DRIVE_CONFIG request: U8 esc mode
+// (driveEscMode_e), U16 wheel diameter mm, U16 gyro min speed and U16 gyro full speed
+// (0.1 km/h), U8 gyro reverse (0/1), U8 gyro reverse gain %. SET refuses any out-of-range
+// value and then changes nothing. MSP2_GRIPORA_DRIVE_STATUS reply: U8 esc mode in use (never
+// AUTO), U8 commanded state (driveEscState_e), S8 travel direction (+1/-1), U8 speed known,
+// U16 speed (0.1 km/h), U8 gyro correction scale %.
+#define MSP2_GRIPORA_DRIVE_CONFIG             0x5F3C
+#define MSP2_GRIPORA_SET_DRIVE_CONFIG         0x5F3D
+#define MSP2_GRIPORA_DRIVE_STATUS             0x5F3E
 #define MSP_V2_FRAME                         255

@@ -24,6 +24,9 @@
 #include "gmock/gmock.h"
 
 float throttle;
+float driveThrottle;        // Stabilized throttle the mixer sends to the ESC
+bool rpmActive;
+float wheelRpm;
 
 // Dummies
 extern "C" {
@@ -32,6 +35,10 @@ extern "C" {
 #include "sensors/gyro.h"
 #include "io/gps.h"
 #include "fc/runtime_config.h"
+#include "flight/drive.h"
+#include "common/maths.h"
+#include "flight/mixer.h"
+#include "pg/drive.h"
 
 gpsSolutionData_t gpsSol;
 
@@ -39,7 +46,12 @@ bool gyroOverflowDetected(void) { return false; }
 void beeperConfirmationBeeps(uint8_t) {}
 float getThrottle(void) { return throttle; }
 void setpointInitProfile(void) {}
-float mixerGetInput(uint8_t) { return 0.0; }
+float mixerGetInput(uint8_t index) { return (index == MIXER_IN_STABILIZED_THROTTLE) ? driveThrottle : 0.0f; }
+bool isMotorRpmSourceActive(uint8_t motor) { return rpmActive && motor == 0; }
+float getMotor1Speedf(void) { return wheelRpm; }
+float getMotor2Speedf(void) { return wheelRpm; }
+float getMotorRPMf(uint8_t) { return wheelRpm; }
+bool isMotorProtocolDshot(void) { return false; }
 bool mixerSaturated(uint8_t) { return false; }
 bool stabilizationBypassed = false;
 bool mixerStabilizationBypassed(void) { return stabilizationBypassed; }
@@ -91,6 +103,10 @@ class PIDTestBase : public ::testing::Test {
     void SetUp() override {
         g_mock = &mock;
         throttle = 0;
+        driveThrottle = 0;
+        rpmActive = false;
+        wheelRpm = 0;
+        DISABLE_ARMING_FLAG(ARMED);
         pgResetAll();
         pidInit(mockPidProfile);
     }
@@ -100,6 +116,10 @@ class PIDTestBase : public ::testing::Test {
             gyro.gyroADCf[axis] = 0;
         }
         throttle = 0;
+        driveThrottle = 0;
+        rpmActive = false;
+        wheelRpm = 0;
+        DISABLE_ARMING_FLAG(ARMED);
         g_mock = nullptr;
     }
     PIDIO getResponse(PIDIO &input)
@@ -399,4 +419,163 @@ TEST_F(PIDTestBase, ItermDecaysWithoutAirborneGating)
     }
     getResponse(release);
     EXPECT_LT(fabsf(pidGetAxisData()[PID_YAW].axisError), built * 0.1f);
+}
+
+//// Drive state: reverse and low-speed gyro (flight/drive.c)
+
+class PIDDriveTest : public PIDTestBase {
+  public:
+    // Constant stick and yaw rotation for some time, armed, at the given throttle
+    PIDIO hold(float stick, float seconds)
+    {
+        ENABLE_ARMING_FLAG(ARMED);
+        PIDIO input;
+        const int n = lrintf(seconds * 1000);
+        for (int i = 0; i < n; i++) {
+            for (int axis = 0; axis < 4; axis++) {
+                input[axis].push_back(axis == PID_YAW ? stick : 0);
+            }
+        }
+        return getResponse(input);
+    }
+    // Wheel RPM for a speed with the default 100 mm tyre
+    static float rpmFor(float kmh) { return kmh / (M_PIf * 100 * 1e-6f * 60.0f); }
+    const pidAxisData_t &yaw() { return pidGetAxisData()[PID_YAW]; }
+};
+
+TEST_F(PIDDriveTest, ReverseGivesTheOppositeCorrection)
+// The same yaw rotation with the stick centred gives the opposite P and D correction in
+// reverse: the yaw response to a steering angle changes sign travelling backwards
+{
+    driveConfigMutable()->gyro_reverse_gain = 100;
+    mockPidProfile->pid_mode = 1;
+    mockPidProfile->pid[PID_YAW].P = 100;
+    mockPidProfile->pid[PID_YAW].I = 0;
+    mockPidProfile->pid[PID_YAW].D = 100;
+    mockPidProfile->pid[PID_YAW].F = 0;
+    mockPidProfile->pid[PID_YAW].B = 0;
+
+    // A yaw rate that keeps changing, so D has something to see
+    auto drive = [&](float throttleCmd) {
+        pidInit(mockPidProfile);
+        driveThrottle = throttleCmd;
+        ENABLE_ARMING_FLAG(ARMED);
+        PIDIO input;
+        for (int axis = 0; axis < 4; axis++)
+            input[axis].push_back(0);
+        float P = 0, D = 0;
+        for (int i = 0; i < 1500; i++) {
+            gyro.gyroADCf[PID_YAW] = 40 + 0.05f * i;
+            getResponse(input);
+            P = yaw().P;
+            D = yaw().D;
+        }
+        return std::make_pair(P, D);
+    };
+
+    const auto forward = drive(0.5f);
+    EXPECT_EQ(driveGetDirection(), 1);
+    const auto reverse = drive(-0.5f);
+    EXPECT_EQ(driveGetDirection(), -1);
+
+    EXPECT_NE(forward.first, 0);
+    EXPECT_NE(forward.second, 0);
+    EXPECT_NEAR(reverse.first, -forward.first, fabsf(forward.first) * 1e-4f);
+    EXPECT_NEAR(reverse.second, -forward.second, fabsf(forward.second) * 1e-3f);
+}
+
+TEST_F(PIDDriveTest, StandstillIsStickOnly)
+// Speed known and zero: no yaw response to correct with, so P, I and D are zero and I does
+// not wind up, while F still follows the stick
+{
+    onlyGains(100, 100, 100, 0);
+    mockPidProfile->pid[PID_YAW].D = 100;
+    pidInit(mockPidProfile);
+
+    rpmActive = true;
+    wheelRpm = 0;
+    driveThrottle = 0.3f;
+    gyro.gyroADCf[PID_YAW] = 0;
+
+    hold(0.5f, 1.0f);
+    EXPECT_TRUE(driveSpeedKnown());
+    EXPECT_EQ(driveGetCorrectionScale(), 0);
+    EXPECT_EQ(yaw().P, 0);
+    EXPECT_EQ(yaw().I, 0);
+    EXPECT_EQ(yaw().D, 0);
+    EXPECT_EQ(yaw().axisError, 0);
+    EXPECT_NE(yaw().F, 0);
+    EXPECT_FLOAT_EQ(pidGetOutput(PID_YAW), yaw().F);
+
+    // Moving: the correction comes in and I builds
+    wheelRpm = rpmFor(10);
+    hold(0.5f, 0.5f);
+    EXPECT_FLOAT_EQ(driveGetCorrectionScale(), 1.0f);
+    EXPECT_NE(yaw().P, 0);
+    EXPECT_NE(yaw().axisError, 0);
+}
+
+TEST_F(PIDDriveTest, ReverseOffIsStickOnly)
+// drive_gyro_reverse OFF: no correction in reverse, but the stick still steers
+{
+    onlyGains(100, 100, 100, 0);
+    pidInit(mockPidProfile);
+    driveConfigMutable()->esc_mode = DRIVE_ESC_FWD_REV;
+    driveConfigMutable()->gyro_reverse = 0;
+
+    driveThrottle = 0.5f;
+    gyro.gyroADCf[PID_YAW] = 40;
+    hold(0.3f, 1.0f);
+    const float forwardF = yaw().F;
+    EXPECT_NE(yaw().P, 0);
+
+    driveThrottle = -0.5f;
+    hold(0.3f, 2.0f);
+    EXPECT_EQ(driveGetDirection(), -1);
+    EXPECT_EQ(yaw().P, 0);
+    EXPECT_EQ(yaw().I, 0);
+    EXPECT_EQ(yaw().D, 0);
+    EXPECT_NE(yaw().F, 0);
+    EXPECT_FLOAT_EQ(yaw().F, forwardF);
+}
+
+TEST_F(PIDDriveTest, DirectionChangeResetsYawIterm)
+// The I-term accumulated going forward belongs to that direction: dropped on a change
+{
+    onlyGains(0, 100, 0, 0);
+    pidInit(mockPidProfile);
+    driveConfigMutable()->esc_mode = DRIVE_ESC_FWD_REV;
+
+    driveThrottle = 0.5f;
+    hold(0.1f, 0.5f);
+    EXPECT_GT(fabsf(yaw().axisError), 1);
+
+    // Reverse without RPM: changes at once, the I-term goes, and the faded-in correction
+    // holds its accumulation back at first
+    driveThrottle = -0.5f;
+    hold(0.1f, 0.001f);
+    EXPECT_EQ(driveGetDirection(), -1);
+    EXPECT_EQ(yaw().axisError, 0);
+    EXPECT_EQ(yaw().I, 0);
+}
+
+TEST_F(PIDDriveTest, DirectionChangeWithoutRpmFadesCorrectionIn)
+{
+    onlyGains(100, 0, 0, 0);
+    pidInit(mockPidProfile);
+    driveConfigMutable()->esc_mode = DRIVE_ESC_FWD_REV;
+    driveConfigMutable()->gyro_reverse_gain = 100;
+    gyro.gyroADCf[PID_YAW] = 40;
+
+    driveThrottle = 0.5f;
+    hold(0, 1.0f);
+    const float full = yaw().P;
+    EXPECT_NE(full, 0);
+
+    driveThrottle = -0.5f;
+    hold(0, 0.001f);
+    EXPECT_EQ(yaw().P, 0);
+
+    hold(0, DRIVE_DIR_CHANGE_RAMP_S + 0.5f);
+    EXPECT_NEAR(yaw().P, -full, fabsf(full) * 1e-3f);
 }

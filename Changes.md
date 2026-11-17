@@ -3,6 +3,55 @@
 This file collects the changes in the firmware that affect the APIs or how the
 car drives. Entries below "Inherited from WingFlight" predate the Gripora fork.
 
+## Drive state: reverse and low-speed gyro
+
+The steering loop now knows which way the car is travelling and how fast
+(`src/main/flight/drive.c`, used by `src/main/flight/pid.c`):
+
+- Travelling backwards the yaw gyro rate is negated for the steering loop, so
+  the correction no longer turns into positive feedback in reverse. The stick
+  keeps meaning "wheel angle"; F and B are unchanged.
+- The gyro correction (P, I and D, not F and B) is scaled by speed: none below
+  `drive_gyro_min_speed`, rising to full at `drive_gyro_full_speed`. At a
+  standstill the steering is the stick alone and I does not wind up. Speed
+  comes from the motor RPM (DShot telemetry, ESC telemetry or frequency
+  sensor) through `motor1_gear_ratio` (averaged with motor 2 if it has RPM
+  too) and `drive_wheel_diameter`. Without RPM the correction is not scaled
+  by speed.
+- In reverse the correction is `drive_gyro_reverse_gain` % of forward, or off
+  with `drive_gyro_reverse` OFF.
+- The direction comes from the throttle command through an ESC model,
+  `drive_esc_mode`: `FWD_BRK_REV` (below neutral brakes after forward;
+  neutral, then below again reverses), `FWD_REV` (below neutral reverses,
+  braking or coasting first while still rolling), `FWD_BRK` (never reverses),
+  `AUTO` (`FWD_REV` on DShot, the AM32 default, else `FWD_BRK_REV`; an AM32
+  with "RC car reverse" on needs `FWD_BRK_REV`). With RPM the direction only
+  changes at zero speed, so braking is never taken for reverse. Without RPM
+  it changes with the command, and the correction then fades back in from
+  zero over 1 s. The yaw I-term is cleared on every direction change.
+- Speed attenuation (`fw_spa_*`) uses the RPM wheel speed when there is one,
+  GPS otherwise. Its CLI settings are now on every target, not only GPS ones.
+- New PG `PG_DRIVE_CONFIG` (1028). CLI settings (defaults): `drive_esc_mode`
+  (`AUTO`), `drive_wheel_diameter` (100 mm, 20..300), `drive_gyro_min_speed`
+  (20 = 2.0 km/h, 0.1 km/h units), `drive_gyro_full_speed` (60 = 6.0 km/h,
+  always above min), `drive_gyro_reverse` (ON), `drive_gyro_reverse_gain`
+  (50 %, 0..100).
+- New debug mode `DRIVE` (appended): throttle command x1000, commanded state
+  (0 neutral, 1 forward, 2 brake, 3 reverse), direction, speed x10 (km/h),
+  speed known, correction scale x1000, motor 1 RPM, stopped.
+
+MSP, for the next API version (the version is not bumped here):
+
+- `MSP2_GRIPORA_DRIVE_CONFIG` (0x5F3C) reply and
+  `MSP2_GRIPORA_SET_DRIVE_CONFIG` (0x5F3D) request: `U8 esc_mode`
+  (0 AUTO, 1 FWD_BRK_REV, 2 FWD_REV, 3 FWD_BRK), `U16 wheel_diameter` (mm),
+  `U16 gyro_min_speed`, `U16 gyro_full_speed` (0.1 km/h), `U8 gyro_reverse`
+  (0/1), `U8 gyro_reverse_gain` (%). SET refuses the whole request if any value
+  is out of range or full speed is not above min speed.
+- `MSP2_GRIPORA_DRIVE_STATUS` (0x5F3E) reply: `U8` ESC mode in use (never
+  AUTO), `U8` commanded state, `S8` travel direction (+1/-1), `U8` speed
+  known, `U16` speed (0.1 km/h), `U8` correction scale (%).
+
 ## Car mixer preset
 
 - `model_type` is now `CAR` (0) or `CUSTOM` (1). The aircraft types are gone;

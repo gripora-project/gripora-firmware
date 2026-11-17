@@ -183,6 +183,7 @@
 #define PG_FBUS_MUX_FPGA_CONFIG      1025
 // 1026 is taken by PG_REVERSE_FLIGHT_CONFIG on an open branch (feature/4d)
 #define PG_SERVO_NAMES               1027
+#define PG_DRIVE_CONFIG              1028
 
 // OSD configuration -- removed (OSD)
 //#define PG_OSD_FONT_CONFIG 2047

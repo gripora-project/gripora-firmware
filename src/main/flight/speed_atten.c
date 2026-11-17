@@ -15,23 +15,25 @@
  * along with this software. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// GPS speed attenuation (SPA): scales P, D, F and B by GPS speed, alongside the
-// throttle-based TPA. Dynamic pressure over the surfaces grows with the square
-// of airspeed, so a tune that is right at cruise can oscillate in a fast dive.
-// TPA cannot see that (the throttle is often closed in a dive); GPS speed can.
+// Speed attenuation (SPA): scales P, D, F and B by vehicle speed, alongside the
+// throttle-based TPA. A car's yaw response to a steering angle grows with
+// speed, so a tune that is right at moderate speed can oscillate flat out. TPA
+// cannot see that (the throttle is often closed at speed, e.g. into a corner);
+// the speed can.
+//
+// Speed source: the motor RPM wheel speed from flight/drive.c when the motor has
+// an RPM source, else GPS ground speed (3D speed where the receiver reports it).
 //
 // Shape mirrors fw_tpa_gain/fw_tpa_curve: a baseline gain times a curve from
 // the shared gain-curve pool, here evaluated at speed / speed_max instead of
 // throttle. With no curve assigned SPA is off and the scale is exactly 1.0.
 //
-// GPS is ground-referenced, not airspeed, so wind shifts it. 3D speed is used
-// where the receiver reports it so vertical dives count.
-//
-// Fix loss: the last scale is held for FW_SPA_HOLD_TIME_S, then eased back to
-// 1.0 at FW_SPA_SLEW_RATE. Holding avoids a gain jump at high speed on a brief
-// dropout; easing back avoids flying on a stale low gain indefinitely. When
-// SPA engages (first fix, fix regained, profile change) the scale is eased onto
-// the curve at the same rate instead of stepping to it.
+// Speed loss (no RPM source and no GPS fix): the last scale is held for
+// FW_SPA_HOLD_TIME_S, then eased back to 1.0 at FW_SPA_SLEW_RATE. Holding avoids
+// a gain jump at high speed on a brief dropout; easing back avoids driving on a
+// stale low gain indefinitely. When SPA engages (first speed, speed regained,
+// profile change) the scale is eased onto the curve at the same rate instead of
+// stepping to it.
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -44,6 +46,7 @@
 
 #include "fc/runtime_config.h"
 
+#include "flight/drive.h"
 #include "flight/pid.h"
 
 #include "io/gps.h"
@@ -135,6 +138,13 @@ void speedAttenUpdateFrom(bool haveFix, float speedKmh, float dT)
 
 void speedAttenUpdate(float dT)
 {
+    // Wheel speed from the motor RPM when there is one: no fix needed, and it updates
+    // far faster than GPS
+    if (driveSpeedKnown()) {
+        speedAttenUpdateFrom(true, driveGetSpeedKmh(), dT);
+        return;
+    }
+
 #ifdef USE_GPS
     const bool haveFix = sensors(SENSOR_GPS) && STATE(GPS_FIX);
     // Only u-blox reports 3D speed; other providers leave it at 0, and 3D

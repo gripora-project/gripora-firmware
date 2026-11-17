@@ -78,6 +78,7 @@
 #include "pg/pinio.h"
 #include "pg/piniobox.h"
 #include "pg/position.h"
+#include "pg/drive.h"
 #include "pg/rx.h"
 #include "pg/rx_pwm.h"
 #include "pg/rx_spi.h"
@@ -453,6 +454,10 @@ const char * const lookupTableParamType[] = {
     "NONE", "TIMER1", "TIMER2", "TIMER3", "GV1", "GV2", "GV3", "GV4", "GV5", "GV6", "GV7", "GV8", "GV9"
 };
 
+static const char * const lookupTableDriveEscMode[] = {
+    "AUTO", "FWD_BRK_REV", "FWD_REV", "FWD_BRK",
+};
+
 #ifdef USE_SMARTFUEL
 static const char * const lookupTableSmartFuelMode[] = {
     "OFF", "VOLTAGE", "CURRENT", "COMBINED",
@@ -556,6 +561,7 @@ const lookupTableEntry_t lookupTables[] = {
     LOOKUP_TABLE_ENTRY(lookupTablePullMode),
     LOOKUP_TABLE_ENTRY(lookupTableEdgeMode),
     LOOKUP_TABLE_ENTRY(lookupTableParamType),
+    LOOKUP_TABLE_ENTRY(lookupTableDriveEscMode),
 #ifdef USE_SMARTFUEL
     LOOKUP_TABLE_ENTRY(lookupTableSmartFuelMode),
 #endif
@@ -954,6 +960,14 @@ const clivalue_t valueTable[] = {
     { PARAM_NAME_FILTER_PROCESS_DENOM, VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, MAX_PID_PROCESS_DENOM }, PG_PID_CONFIG, offsetof(pidConfig_t, filter_process_denom) },
     { "yaw_gyro_reverse",           VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_PID_CONFIG, offsetof(pidConfig_t, yaw_gyro_reverse) },
 
+// PG_DRIVE_CONFIG
+    { "drive_esc_mode",             VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_DRIVE_ESC_MODE }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, esc_mode) },
+    { "drive_wheel_diameter",       VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { DRIVE_WHEEL_DIAMETER_MIN, DRIVE_WHEEL_DIAMETER_MAX }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, wheel_diameter) },
+    { "drive_gyro_min_speed",       VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { DRIVE_GYRO_MIN_SPEED_MIN, DRIVE_GYRO_SPEED_MAX - 1 }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_min_speed) },
+    { "drive_gyro_full_speed",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 1, DRIVE_GYRO_SPEED_MAX }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_full_speed) },
+    { "drive_gyro_reverse",         VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_reverse) },
+    { "drive_gyro_reverse_gain",    VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, DRIVE_GYRO_REVERSE_GAIN_MAX }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_reverse_gain) },
+
 // PG_PID_PROFILE
 #ifdef USE_PROFILE_NAMES
     { "profile_name",               VAR_UINT8  | PROFILE_VALUE | MODE_STRING, .config.string = { 1, MAX_PROFILE_NAME_LENGTH, STRING_FLAGS_NONE }, PG_PID_PROFILE, offsetof(pidProfile_t, profileName) },
@@ -965,12 +979,10 @@ const clivalue_t valueTable[] = {
 
     { "fw_tpa_gain",                VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 25, 200 }, PG_PID_PROFILE, offsetof(pidProfile_t, fw_tpa_gain) },
     { "fw_tpa_curve",               VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, GAIN_CURVE_COUNT }, PG_PID_PROFILE, offsetof(pidProfile_t, fw_tpa_curve) },
-#ifdef USE_GPS
-    // GPS speed attenuation. fw_spa_curve = 0 turns it off.
+    // Speed attenuation (motor RPM wheel speed, else GPS). fw_spa_curve = 0 turns it off.
     { "fw_spa_gain",                VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 25, 200 }, PG_FW_SPA_CONFIG, offsetof(fwSpaConfig_t, gain) },
     { "fw_spa_curve",               VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, GAIN_CURVE_COUNT }, PG_FW_SPA_CONFIG, offsetof(fwSpaConfig_t, curve) },
     { "fw_spa_speed_max",           VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { FW_SPA_SPEED_MAX_MIN, FW_SPA_SPEED_MAX_MAX }, PG_FW_SPA_CONFIG, offsetof(fwSpaConfig_t, speed_max) },
-#endif
 
     { "pitch_p_gain",               VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_PID_PROFILE, offsetof(pidProfile_t, pid[PID_PITCH].P) },
     { "pitch_i_gain",               VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, PID_GAIN_MAX }, PG_PID_PROFILE, offsetof(pidProfile_t, pid[PID_PITCH].I) },
