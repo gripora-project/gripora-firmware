@@ -25,15 +25,13 @@
 #include "pg/pg.h"
 
 // Descriptive only -- firmware does not branch on this. It lets the
-// configurator show a simplified mixer view for named airframes and only
-// expose the raw rule editor for MODEL_TYPE_CUSTOM.
+// configurator show the simplified car setup (steering, ESC, optional rear
+// steering and second ESC) and only expose the raw rule editor for
+// MODEL_TYPE_CUSTOM.
 enum {
-    MODEL_TYPE_REGULAR_AIRPLANE,
-    MODEL_TYPE_FLYING_WING,
-    MODEL_TYPE_V_TAIL_AIRPLANE,
-    MODEL_TYPE_DELTA_WING,
-    MODEL_TYPE_RUDDER_ELEVATOR_TRAINER,
+    MODEL_TYPE_CAR,
     MODEL_TYPE_CUSTOM,
+    MODEL_TYPE_COUNT
 };
 
 enum {

@@ -1,7 +1,71 @@
-# Changes in Rotorflight Firmware
+# Changes in Gripora Firmware
 
-This file is collecting the changes in the firmware that are affecting
-the APIs or flight performance.
+This file collects the changes in the firmware that affect the APIs or how the
+car drives. Entries below "Inherited from WingFlight" predate the Gripora fork.
+
+## Car mixer preset
+
+- `model_type` is now `CAR` (0) or `CUSTOM` (1). The aircraft types are gone;
+  `MSP_SET_MIXER_CONFIG` rejects any other value. The mixer config PG is
+  reset on upgrade (v3).
+- Default mixer rules: `SET STABILIZED_YAW -> S1` (steering) and
+  `SET STABILIZED_THROTTLE -> M1` (reversible ESC). The rules PG is reset on
+  upgrade (v9).
+- Wiggle (the servo twitch for ready, armed and arming errors) moves only the
+  steering.
+- New `yaw_gyro_reverse` (OFF/ON, PID config PG v4): reverses only the yaw
+  gyro feedback of the steering loop, for when the gyro corrects the wrong way.
+  Board orientation and the attitude estimate are unchanged. Carried as an
+  optional trailing U8 in `MSP_MIXER_CONFIG` / `MSP_SET_MIXER_CONFIG`; the
+  servo update rate before it is now read even on builds without servos. MSP
+  API version 22.17.
+
+## Aircraft features removed (car conversion, step 1)
+
+Throttle and ESC:
+
+- Throttle is signed around `rc_center`: forward above, brake/reverse below,
+  with a 10 us neutral deadband. "Throttle off" (arming, auto-disarm,
+  failsafe) means the stick at neutral.
+- A zero command to a bidirectional motor is neutral, the midpoint of
+  `min_throttle`..`max_throttle`, on PWM, SRXL2 and SITL. It used to be
+  `min_command`, which a car ESC reads as full brake/reverse.
+- Defaults: `min_throttle` 1000, `max_throttle` 2000, every motor
+  `motor_control_mode` bidirectional, `failsafe_throttle` 1500 (neutral). The
+  receiver failsafe puts the throttle channel at centre. The stabilized
+  throttle mixer input range is -1000..1000.
+
+Removed: attitude hold, acro trainer, angle/leveling, GPS nav and rescue,
+airborne detection, auto trim, trim monitor, thrust vectoring, hold engine,
+governor and tune advisor.
+
+- Modes ANGLE, TRAINER, ATTHOLD, LOITER, RTH, MANUAL, AUTOTRIM, THRUSTVECTOR,
+  TVHOLD, TRADITIONAL and GOVERNOR are gone (their ids are reserved).
+  PASSTHROUGH is reported as `GYRO OFF` and bypasses only the steering.
+- Only yaw is stabilised; roll and pitch setpoints and outputs are zero. The
+  3-axis attitude estimate still runs.
+- MSP commands removed (unsupported reply): `MSP2_WING_GOVERNOR_CONFIG`,
+  `MSP2_WING_SET_GOVERNOR_CONFIG`, `MSP2_WING_TV_EFFECTIVE_PID_GAINS`,
+  `MSP2_WING_TV_PID_CONFIG`, `MSP2_WING_SET_TV_PID_CONFIG`,
+  `MSP2_WING_SELECT_TV_PROFILE`, `MSP2_WING_COPY_TV_PID_PROFILE`,
+  `MSP_GPS_RESCUE`, `MSP_SET_GPS_RESCUE`, `MSP_GPS_RESCUE_PIDS`,
+  `MSP_SET_GPS_RESCUE_PIDS`, `MSP2_WING_GPS_NAV_CONFIG`,
+  `MSP2_WING_SET_GPS_NAV_CONFIG`, `MSP2_WING_TUNE_ADVISOR`,
+  `MSP2_WING_TUNE_ADVISOR_CLEAR`.
+- Every other MSP message keeps its layout. In `MSP_PID_PROFILE` the angle,
+  trainer, attitude hold, cross-axis relax, attitude limit, level damping,
+  snap relax and prop-hang fields are zero placeholders.
+- CLI settings removed: `governor_*`, `gps_rescue_*`, `nav_*`, `tv_*`,
+  `failsafe_stick_threshold`, `cross_axis_relax_*`, `snap_relax_*`,
+  `prop_hang_*`, `angle_*`, `acro_trainer_*`, `atthold_*`; the `tv_profile`
+  command is gone.
+- Failsafe: the GPS-rescue procedure is gone. AUTO-LAND holds
+  `failsafe_throttle` for `failsafe_off_delay`, then disarms.
+- Telemetry status: bit 1 is RUNNING (armed and the throttle has left
+  neutral); the nav, assist, autotrim, TV-profile and trim-monitor bits are
+  zero. Blackbox `rcCommand[4]` (throttle) is signed.
+
+# Inherited from WingFlight
 
 ## F.Bus Master Wiring Detection
 

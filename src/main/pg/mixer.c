@@ -34,10 +34,11 @@
 // version IS bumped this time (unlike when model_type was first added) to
 // force pgLoad() to reset model_type to its default on upgrade instead of
 // short-memcpy'ing the old tail_rotor_mode byte into it.
-PG_REGISTER_WITH_RESET_TEMPLATE(mixerConfig_t, mixerConfig, PG_GENERIC_MIXER_CONFIG, 2);
+// v3: model types are car types now (CAR, CUSTOM); the aircraft types are gone.
+PG_REGISTER_WITH_RESET_TEMPLATE(mixerConfig_t, mixerConfig, PG_GENERIC_MIXER_CONFIG, 3);
 
 PG_RESET_TEMPLATE(mixerConfig_t, mixerConfig,
-    .model_type = MODEL_TYPE_REGULAR_AIRPLANE,
+    .model_type = MODEL_TYPE_CAR,
 );
 
 // v1: added weightNeg (second weight applied when a rule's input is negative,
@@ -48,54 +49,31 @@ PG_RESET_TEMPLATE(mixerConfig_t, mixerConfig,
 // by their sign directly now. v6: added condition. v7: reset stale saved
 // rules that could still point throttle at S9 after the motor output moved to M1.
 // v8: reset rules saved when the bus servos had slots of their own (S9-S32),
-// which would now drive a different servo.
-PG_REGISTER_ARRAY_WITH_RESET_FN(mixerRule_t, MIXER_RULE_COUNT, mixerRules, PG_GENERIC_MIXER_RULES, 8);
+// which would now drive a different servo. v9: car defaults (steering S1, ESC M1)
+// replace the aircraft ones.
+PG_REGISTER_ARRAY_WITH_RESET_FN(mixerRule_t, MIXER_RULE_COUNT, mixerRules, PG_GENERIC_MIXER_RULES, 9);
 
 void pgResetFn_mixerRules(mixerRule_t *rule)
 {
-    // Default standard glider mixer rules (2 ail + elev + rud + motor)
-    // S1: Left aileron (STABILIZED_ROLL, weight +1000)
+    // Default car: steering servo on S1 and a reversible ESC on M1.
+    // S1: Steering (STABILIZED_YAW: the gyro-stabilised steering command)
     rule[0].oper   = MIXER_OP_SET;
-    rule[0].input  = MIXER_IN_STABILIZED_ROLL;
+    rule[0].input  = MIXER_IN_STABILIZED_YAW;
     rule[0].output = MIXER_SERVO_OFFSET + 0;
     rule[0].offset = 0;
     rule[0].weight = 1000;
     rule[0].weightNeg = 1000;
 
-    // S2: Right aileron (STABILIZED_ROLL, weight -1000 for differential)
+    // M1: ESC (STABILIZED_THROTTLE, signed: forward above neutral, brake/reverse below)
     rule[1].oper   = MIXER_OP_SET;
-    rule[1].input  = MIXER_IN_STABILIZED_ROLL;
-    rule[1].output = MIXER_SERVO_OFFSET + 1;
+    rule[1].input  = MIXER_IN_STABILIZED_THROTTLE;
+    rule[1].output = MIXER_MOTOR_OFFSET + 0;
     rule[1].offset = 0;
-    rule[1].weight = -1000;
-    rule[1].weightNeg = -1000;
-
-    // S3: Elevator (STABILIZED_PITCH, weight +1000)
-    rule[2].oper   = MIXER_OP_SET;
-    rule[2].input  = MIXER_IN_STABILIZED_PITCH;
-    rule[2].output = MIXER_SERVO_OFFSET + 2;
-    rule[2].offset = 0;
-    rule[2].weight = 1000;
-    rule[2].weightNeg = 1000;
-
-    // S4: Rudder (STABILIZED_YAW, weight +1000)
-    rule[3].oper   = MIXER_OP_SET;
-    rule[3].input  = MIXER_IN_STABILIZED_YAW;
-    rule[3].output = MIXER_SERVO_OFFSET + 3;
-    rule[3].offset = 0;
-    rule[3].weight = 1000;
-    rule[3].weightNeg = 1000;
-
-    // M1: Motor/Throttle (STABILIZED_THROTTLE, weight +1000)
-    rule[4].oper   = MIXER_OP_SET;
-    rule[4].input  = MIXER_IN_STABILIZED_THROTTLE;
-    rule[4].output = MIXER_MOTOR_OFFSET + 0;
-    rule[4].offset = 0;
-    rule[4].weight = 1000;
-    rule[4].weightNeg = 1000;
+    rule[1].weight = 1000;
+    rule[1].weightNeg = 1000;
 
     // Clear remaining rules
-    for (int i = 5; i < MIXER_RULE_COUNT; i++) {
+    for (int i = 2; i < MIXER_RULE_COUNT; i++) {
         rule[i].oper = MIXER_OP_NUL;
     }
 }

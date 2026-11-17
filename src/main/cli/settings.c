@@ -428,7 +428,7 @@ static const char* const lookupTableSwitchMode[] = {
 #endif
 
 static const char * const lookupTableModelType[] = {
-    "REGULAR_AIRPLANE", "FLYING_WING", "V_TAIL_AIRPLANE", "DELTA_WING", "RUDDER_ELEVATOR_TRAINER", "CUSTOM",
+    "CAR", "CUSTOM",
 };
 
 #ifdef USE_ESC_SENSOR
@@ -952,6 +952,7 @@ const clivalue_t valueTable[] = {
 // PG_PID_CONFIG
     { PARAM_NAME_PID_PROCESS_DENOM,    VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 1, MAX_PID_PROCESS_DENOM }, PG_PID_CONFIG, offsetof(pidConfig_t, pid_process_denom) },
     { PARAM_NAME_FILTER_PROCESS_DENOM, VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, MAX_PID_PROCESS_DENOM }, PG_PID_CONFIG, offsetof(pidConfig_t, filter_process_denom) },
+    { "yaw_gyro_reverse",           VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_PID_CONFIG, offsetof(pidConfig_t, yaw_gyro_reverse) },
 
 // PG_PID_PROFILE
 #ifdef USE_PROFILE_NAMES

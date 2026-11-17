@@ -628,6 +628,14 @@ static float pidApplyGyroRate(uint8_t axis)
     // Get gyro rate
     float gyroRate = gyro.gyroADCf[axis];
 
+    // yaw_gyro_reverse turns the steering loop's sense of yaw around, for when the gyro
+    // corrects the wrong way (typically a transmitter with a reversed steering channel,
+    // fixed with a servo reverse). Only this loop sees it: the board orientation and the
+    // attitude estimate stay as they are.
+    if (axis == PID_YAW && pidConfig()->yaw_gyro_reverse) {
+        gyroRate = -gyroRate;
+    }
+
     // Bandwidth limiter
     gyroRate = filterApply(&pid.gyrorFilter[axis], gyroRate);
 

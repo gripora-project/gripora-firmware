@@ -31,11 +31,13 @@
 #include "pid.h"
 
 
-PG_REGISTER_WITH_RESET_TEMPLATE(pidConfig_t, pidConfig, PG_PID_CONFIG, 3);
+// v4: added yaw_gyro_reverse
+PG_REGISTER_WITH_RESET_TEMPLATE(pidConfig_t, pidConfig, PG_PID_CONFIG, 4);
 
 PG_RESET_TEMPLATE(pidConfig_t, pidConfig,
     .pid_process_denom = PID_PROCESS_DENOM_DEFAULT,
     .filter_process_denom = FILTER_PROCESS_DENOM_DEFAULT,
+    .yaw_gyro_reverse = 0,
 );
 
 PG_REGISTER_ARRAY_WITH_RESET_FN(gainCurve_t, GAIN_CURVE_COUNT, gainCurves, PG_GAIN_CURVES, 0);

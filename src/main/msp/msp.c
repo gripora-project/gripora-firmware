@@ -1838,6 +1838,8 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #else
         sbufWriteU16(dst, 0);
 #endif
+        // API 22.17: yaw_gyro_reverse
+        sbufWriteU8(dst, pidConfig()->yaw_gyro_reverse);
         break;
 
     case MSP_MIXER_INPUTS:
@@ -3728,6 +3730,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         // Every field is read and checked before any is applied, so a
         // request that is refused changes nothing.
         const uint8_t modelType = sbufReadU8(src);
+        if (modelType >= MODEL_TYPE_COUNT) {
+            return MSP_RESULT_ERROR;
+        }
         sbufReadU8(src); // was bus_servo_clone_pwm
         // API 22.5: optional SBUS and F.Bus output channel counts. Takes
         // effect on the next frame.
@@ -3742,18 +3747,29 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
                 return MSP_RESULT_ERROR;
             }
         }
-#ifdef USE_SERVOS
-        // API 22.16: optional PWM servo update rate. Used from the next boot.
+        // API 22.16: optional PWM servo update rate. Used from the next boot. Read even
+        // without servos, so the fields after it are where the client put them.
         bool hasPwmRate = false;
         uint16_t pwmRate = 0;
         if (sbufBytesRemaining(src) >= 2) {
             hasPwmRate = true;
             pwmRate = sbufReadU16(src);
+#ifdef USE_SERVOS
             if (pwmRate < SERVO_RATE_MIN || pwmRate > SERVO_RATE_MAX) {
                 return MSP_RESULT_ERROR;
             }
-        }
 #endif
+        }
+        // API 22.17: optional yaw_gyro_reverse (0 or 1)
+        bool hasYawGyroReverse = false;
+        uint8_t yawGyroReverse = 0;
+        if (sbufBytesRemaining(src) >= 1) {
+            hasYawGyroReverse = true;
+            yawGyroReverse = sbufReadU8(src);
+            if (yawGyroReverse > 1) {
+                return MSP_RESULT_ERROR;
+            }
+        }
 
         mixerConfigMutable()->model_type = modelType;
         if (hasChannels) {
@@ -3772,7 +3788,13 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         if (hasPwmRate) {
             servoConfigMutable()->pwmRate = pwmRate;
         }
+#else
+        UNUSED(hasPwmRate);
+        UNUSED(pwmRate);
 #endif
+        if (hasYawGyroReverse) {
+            pidConfigMutable()->yaw_gyro_reverse = yawGyroReverse;
+        }
         break;
     }
 

@@ -38,8 +38,8 @@
 
 
 // axis[0..2] mirror the MIXER_IN_STABILIZED_{ROLL,PITCH,YAW} slots mixerSetInput()
-// reads from while disarmed (see mixer.c). The "jump" moves that drove the
-// helicopter collective use pitch (elevator) instead.
+// reads from while disarmed (see mixer.c). On a car only steering (yaw) moves, so every
+// pattern is drawn on yaw: a sweep for READY, twitches for ARMED and the error codes.
 typedef struct {
     bitmap_t    flags;
     float       strength;
@@ -128,37 +128,33 @@ static void wiggleActionReady(timeUs_t currentTimeUs)
         {
             const float angle = wiggleStateTime(currentTimeUs) * M_2PIf / circle_period;
             sincosf_t sincos = sincos_approx(angle);
-            wgl.axis[FD_ROLL] = sincos.sin * wgl.strength;
-            wgl.axis[FD_PITCH] = sincos.cos * wgl.strength;
+            // one full left-right sweep of the steering
+            wgl.axis[FD_YAW] = sincos.sin * wgl.strength;
             wiggleNextStateAfter(currentTimeUs, circle_period);
             break;
         }
         case 2:
         {
-            wgl.axis[FD_ROLL] = 0;
-            wgl.axis[FD_PITCH] = 0;
+            wgl.axis[FD_YAW] = 0;
             wiggleNextStateAfter(currentTimeUs, jump_period);
             break;
         }
         case 3:
         {
-            wgl.axis[FD_ROLL] = 0;
-            wgl.axis[FD_PITCH] = wgl.strength;
+            wgl.axis[FD_YAW] = wgl.strength;
             wiggleNextStateAfter(currentTimeUs, jump_period);
             break;
         }
         case 4:
         {
-            wgl.axis[FD_ROLL] = 0;
-            wgl.axis[FD_PITCH] = -wgl.strength;
+            wgl.axis[FD_YAW] = -wgl.strength;
             wiggleNextStateAfter(currentTimeUs, jump_period);
             break;
         }
         case 5:
         {
             const float time = wiggleStateTime(currentTimeUs);
-            wgl.axis[FD_ROLL] = 0;
-            wgl.axis[FD_PITCH] = -(wgl.strength * (exit_period - time) / exit_period);
+            wgl.axis[FD_YAW] = -(wgl.strength * (exit_period - time) / exit_period);
             wiggleNextStateAfter(currentTimeUs, exit_period);
             break;
         }
@@ -184,19 +180,19 @@ static void wiggleActionArmed(timeUs_t currentTimeUs)
         }
         case 1:
         {
-            wgl.axis[FD_PITCH] = -wgl.strength;
+            wgl.axis[FD_YAW] = -wgl.strength;
             wiggleNextStateAfter(currentTimeUs, jump_period);
             break;
         }
         case 2:
         {
-            wgl.axis[FD_PITCH] = 0;
+            wgl.axis[FD_YAW] = 0;
             wiggleNextStateAfter(currentTimeUs, jump_period);
             break;
         }
         case 3:
         {
-            wgl.axis[FD_PITCH] = wgl.strength;
+            wgl.axis[FD_YAW] = wgl.strength;
             wiggleNextStateAfter(currentTimeUs, jump_period);
             break;
         }
@@ -221,7 +217,7 @@ static void wiggleActionError(timeUs_t currentTimeUs)
         case 1:
         {
             const int cycle = wiggleStateTime(currentTimeUs) / wgl.period;
-            wgl.axis[FD_PITCH] = (cycle & 1) ? -wgl.strength : wgl.strength;
+            wgl.axis[FD_YAW] = (cycle & 1) ? -wgl.strength : wgl.strength;
             wiggleNextStateAfter(currentTimeUs, wgl.param);
             break;
         }
@@ -250,7 +246,7 @@ static void wiggleActionFatal(timeUs_t currentTimeUs)
             const timeDelta_t time = wiggleStateTime(currentTimeUs);
             const int freq = (time % period) / wgl.period;
             const int step = time / period;
-            wgl.axis[FD_PITCH] = (step & 1) ? 0 : ((freq & 1) ? -wgl.strength : wgl.strength);
+            wgl.axis[FD_YAW] = (step & 1) ? 0 : ((freq & 1) ? -wgl.strength : wgl.strength);
             wiggleNextStateAfter(currentTimeUs, wgl.param);
             break;
         }

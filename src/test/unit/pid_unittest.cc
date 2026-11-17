@@ -196,6 +196,34 @@ TEST_F(PIDTestBase, RollAndPitchNeverStabilised)
     }
 }
 
+TEST_F(PIDTestBase, YawGyroReverseFlipsTheCorrection)
+// yaw_gyro_reverse turns the steering loop's correction around: the same yaw rotation
+// with the sticks centred gives the opposite output
+{
+    onlyGains(100, 0, 0, 0);
+    pidInit(mockPidProfile);
+
+    PIDIO input;
+    for (int i = 0; i < 50; i++) {
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(0);
+        }
+    }
+
+    gyro.gyroADCf[PID_YAW] = 40;
+    PIDIO normal = getResponse(input);
+    EXPECT_NE(normal[PID_YAW][49], 0);
+
+    pidConfigMutable()->yaw_gyro_reverse = 1;
+    pidInit(mockPidProfile);
+    PIDIO reversed = getResponse(input);
+    EXPECT_FLOAT_EQ(reversed[PID_YAW][49], -normal[PID_YAW][49]);
+
+    // Roll and pitch are untouched by the setting
+    EXPECT_EQ(reversed[PID_ROLL][49], 0);
+    EXPECT_EQ(reversed[PID_PITCH][49], 0);
+}
+
 class PIDFBTest : public PIDTestBase {
   public:
 };

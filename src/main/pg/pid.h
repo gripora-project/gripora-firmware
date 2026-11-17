@@ -28,6 +28,7 @@
 typedef struct {
     uint8_t pid_process_denom;
     uint8_t filter_process_denom;
+    uint8_t yaw_gyro_reverse;       // reverse the yaw gyro feedback of the steering loop only
 } pidConfig_t;
 
 PG_DECLARE(pidConfig_t, pidConfig);
