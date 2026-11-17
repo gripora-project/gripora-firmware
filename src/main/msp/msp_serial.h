@@ -73,7 +73,7 @@ typedef enum {
 // MSP_ADJUSTMENT_RANGES 42 x 14 = 588 bytes, MSP_SERVO_CONFIGURATIONS up to
 // 1 + 32 x 16 = 513 with bus servos, MSP_MIXER_RULES 32 x 14 = 448.
 // MSP_SERVO_CURVES with bus servos (up to 1185) and a long
-// MSP2_WING_FBUS_SENSORS list do not fit: read those per index.
+// MSP2_GRIPORA_FBUS_SENSORS list do not fit: read those per index.
 #define MSP_PORT_OUTBUF_SIZE_MIN 640
 
 #ifdef USE_FLASHFS

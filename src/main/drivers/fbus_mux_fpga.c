@@ -87,7 +87,7 @@ static bool fbusSendPinFailed;
 // keeps its polarity until the next boot, and the mode word must match it.
 static bool fbusIdleHigh;
 
-// Modes held over MSP (MSP2_WING_SET_FBUS_MUX_OVERRIDE) in place of the saved
+// Modes held over MSP (MSP2_GRIPORA_SET_FBUS_MUX_OVERRIDE) in place of the saved
 // ones, e.g. to put FBUS on one output at a time while XACT servos get their
 // Physical IDs. RAM only, applied at once, and back to the saved modes when it
 // ends or lapses (see fbusMuxFpgaIsOverrideActive). Blocks arming while set.

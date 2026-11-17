@@ -457,7 +457,7 @@ static bool serialPinConflict(ioTag_t tag)
 }
 #endif
 
-// Port state for diagnostics (CLI serialdebug, MSP2_WING_SERIAL_STATUS)
+// Port state for diagnostics (CLI serialdebug, MSP2_GRIPORA_SERIAL_STATUS)
 uint8_t serialGetPortDiagnostics(serialPortIdentifier_e identifier, ioTag_t *rxTag, ioTag_t *txTag, uint32_t *baudRate)
 {
     uint8_t flags = 0;

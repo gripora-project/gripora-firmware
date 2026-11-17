@@ -54,8 +54,8 @@
 
 #define MSP_PROTOCOL_VERSION                 0
 
-#define API_VERSION_MAJOR                    22
-#define API_VERSION_MINOR                    16
+#define API_VERSION_MAJOR                    33
+#define API_VERSION_MINOR                    0
 #define API_VERSION_LENGTH                   2
 
 #define FLIGHT_CONTROLLER_IDENTIFIER_LENGTH  4
@@ -305,79 +305,79 @@
 #define MSP_DEBUGMSG                         253
 #define MSP_DEBUG                            254
 
-#define MSP2_WING_BOARD_AUTO_ALIGN           0x5F00
-#define MSP2_WING_GOVERNOR_CONFIG            0x5F01 // removed (governor) -- id not to be reused
-#define MSP2_WING_SET_GOVERNOR_CONFIG        0x5F02 // removed (governor) -- id not to be reused
-#define MSP2_WING_BOARD_MOUNT_TRIM           0x5F03
-#define MSP2_WING_SET_BOARD_MOUNT_TRIM       0x5F04
-#define MSP2_WING_BOARD_MOUNT_TRIM_AUTO      0x5F05
-#define MSP2_WING_EFFECTIVE_PID_GAINS        0x5F06
-#define MSP2_WING_FBUS_SENSORS               0x5F07
-#define MSP2_WING_CLEAR_FBUS_SENSORS         0x5F08
-#define MSP2_WING_FBUS_MASTER_CONFIG         0x5F09
-#define MSP2_WING_SET_FBUS_MASTER_CONFIG     0x5F0A
-#define MSP2_WING_TV_PID_CONFIG              0x5F0B // removed (thrust vectoring) -- id not to be reused
-#define MSP2_WING_SET_TV_PID_CONFIG          0x5F0C // removed (thrust vectoring) -- id not to be reused
-#define MSP2_WING_RX_INPUT_BACKUP_STATUS     0x5F0D
-#define MSP2_WING_RX_INPUT_BACKUP_CONFIG     0x5F0E
-#define MSP2_WING_SET_RX_INPUT_BACKUP_CONFIG 0x5F0F
-#define MSP2_WING_SELECT_TV_PROFILE          0x5F10 // removed (thrust vectoring) -- id not to be reused
-#define MSP2_WING_COPY_TV_PID_PROFILE        0x5F11 // removed (thrust vectoring) -- id not to be reused
-#define MSP2_WING_RX_SERIAL_TRIAL             0x5F12
-#define MSP2_WING_RX_INPUT_BACKUP_TRIAL       0x5F13
-// 0x5F14, not 0x5F12/0x5F13 - see MSP2_WING_RX_SERIAL_TRIAL/
-// MSP2_WING_RX_INPUT_BACKUP_TRIAL above, which claimed those two from master
+#define MSP2_GRIPORA_BOARD_AUTO_ALIGN           0x5F00
+#define MSP2_GRIPORA_GOVERNOR_CONFIG            0x5F01 // removed (governor) -- id not to be reused
+#define MSP2_GRIPORA_SET_GOVERNOR_CONFIG        0x5F02 // removed (governor) -- id not to be reused
+#define MSP2_GRIPORA_BOARD_MOUNT_TRIM           0x5F03
+#define MSP2_GRIPORA_SET_BOARD_MOUNT_TRIM       0x5F04
+#define MSP2_GRIPORA_BOARD_MOUNT_TRIM_AUTO      0x5F05
+#define MSP2_GRIPORA_EFFECTIVE_PID_GAINS        0x5F06
+#define MSP2_GRIPORA_FBUS_SENSORS               0x5F07
+#define MSP2_GRIPORA_CLEAR_FBUS_SENSORS         0x5F08
+#define MSP2_GRIPORA_FBUS_MASTER_CONFIG         0x5F09
+#define MSP2_GRIPORA_SET_FBUS_MASTER_CONFIG     0x5F0A
+#define MSP2_GRIPORA_TV_PID_CONFIG              0x5F0B // removed (thrust vectoring) -- id not to be reused
+#define MSP2_GRIPORA_SET_TV_PID_CONFIG          0x5F0C // removed (thrust vectoring) -- id not to be reused
+#define MSP2_GRIPORA_RX_INPUT_BACKUP_STATUS     0x5F0D
+#define MSP2_GRIPORA_RX_INPUT_BACKUP_CONFIG     0x5F0E
+#define MSP2_GRIPORA_SET_RX_INPUT_BACKUP_CONFIG 0x5F0F
+#define MSP2_GRIPORA_SELECT_TV_PROFILE          0x5F10 // removed (thrust vectoring) -- id not to be reused
+#define MSP2_GRIPORA_COPY_TV_PID_PROFILE        0x5F11 // removed (thrust vectoring) -- id not to be reused
+#define MSP2_GRIPORA_RX_SERIAL_TRIAL             0x5F12
+#define MSP2_GRIPORA_RX_INPUT_BACKUP_TRIAL       0x5F13
+// 0x5F14, not 0x5F12/0x5F13 - see MSP2_GRIPORA_RX_SERIAL_TRIAL/
+// MSP2_GRIPORA_RX_INPUT_BACKUP_TRIAL above, which claimed those two from master
 // independently on a sibling branch.
-#define MSP2_WING_ESC_SENSOR_TRIAL            0x5F14
+#define MSP2_GRIPORA_ESC_SENSOR_TRIAL            0x5F14
 // 0x5F15: CRSF Sensors link diagnostics (0x5F10-0x5F14 are taken by the entries above).
-#define MSP2_WING_CRSF_SENSORS_STATUS         0x5F15
-#define MSP2_WING_GPS_NAV_CONFIG              0x5F16 // removed (GPS nav) -- id not to be reused
-#define MSP2_WING_SET_GPS_NAV_CONFIG          0x5F17 // removed (GPS nav) -- id not to be reused
-#define MSP2_WING_TUNE_ADVISOR                0x5F18 // removed (tune advisor) -- id not to be reused
-#define MSP2_WING_TUNE_ADVISOR_CLEAR          0x5F19 // removed (tune advisor) -- id not to be reused
+#define MSP2_GRIPORA_CRSF_SENSORS_STATUS         0x5F15
+#define MSP2_GRIPORA_GPS_NAV_CONFIG              0x5F16 // removed (GPS nav) -- id not to be reused
+#define MSP2_GRIPORA_SET_GPS_NAV_CONFIG          0x5F17 // removed (GPS nav) -- id not to be reused
+#define MSP2_GRIPORA_TUNE_ADVISOR                0x5F18 // removed (tune advisor) -- id not to be reused
+#define MSP2_GRIPORA_TUNE_ADVISOR_CLEAR          0x5F19 // removed (tune advisor) -- id not to be reused
 // Setup state, optionally with modes forced, held by a setup tool (fc/rc_modes.c). RAM only:
 // it lapses unless refreshed, blocks arming and can never be saved to EEPROM.
-#define MSP2_WING_MODE_OVERRIDE               0x5F1A
-#define MSP2_WING_SET_MODE_OVERRIDE           0x5F1B
+#define MSP2_GRIPORA_MODE_OVERRIDE               0x5F1A
+#define MSP2_GRIPORA_SET_MODE_OVERRIDE           0x5F1B
 // Holds a PWM servo at mid + offset, ignoring its travel limits, so a setup tool can find
 // the mechanical end stops without widening the stored limits (flight/servos.c).
-#define MSP2_WING_SET_SERVO_PROBE             0x5F1C
+#define MSP2_GRIPORA_SET_SERVO_PROBE             0x5F1C
 // Sets one servo's saved trim in us (added at the output on top of the center, never
 // changing it). Read back with MSP_SERVO_TRIM, which appends the saved trims.
-#define MSP2_WING_SET_SERVO_TRIM              0x5F1D
+#define MSP2_GRIPORA_SET_SERVO_TRIM              0x5F1D
 // FBUS mux FPGA (STM32F7X2M builds only): channel modes, the FPGA's state and which UART
 // it uses. 0x5F1E-0x5F21 are taken by the FBUS OTA commands on a sibling branch.
-#define MSP2_WING_FBUS_MUX_CONFIG             0x5F22
-#define MSP2_WING_SET_FBUS_MUX_CONFIG         0x5F23
+#define MSP2_GRIPORA_FBUS_MUX_CONFIG             0x5F22
+#define MSP2_GRIPORA_SET_FBUS_MUX_CONFIG         0x5F23
 // Applies FBUS mux channel modes at once without saving them (RAM only, lapses unless
 // refreshed, blocks arming), e.g. FBUS on one output at a time to program XACT servos.
-#define MSP2_WING_SET_FBUS_MUX_OVERRIDE       0x5F24
+#define MSP2_GRIPORA_SET_FBUS_MUX_OVERRIDE       0x5F24
 // 0x5F26, not 0x5F25: that one is taken by parameter work on an open branch.
-#define MSP2_WING_TV_EFFECTIVE_PID_GAINS      0x5F26 // removed (thrust vectoring) -- id not to be reused
+#define MSP2_GRIPORA_TV_EFFECTIVE_PID_GAINS      0x5F26 // removed (thrust vectoring) -- id not to be reused
 // Per PWM servo: the rate (Hz) it really runs at and the first servo on its hardware
 // timer. Servos on one timer run at the lowest rate set among them (flight/servos.c).
-#define MSP2_WING_SERVO_TIMING                0x5F27
+#define MSP2_GRIPORA_SERVO_TIMING                0x5F27
 // Latest decoded FBUS/S.Port sensor values (drivers/fbus_sensor.c), one block per sensor
 // type, for the configurator's sensors page. 0x5F28-0x5F32 are taken on open branches.
-#define MSP2_WING_FBUS_SENSORS_STATUS         0x5F33
+#define MSP2_GRIPORA_FBUS_SENSORS_STATUS         0x5F33
 // Serial port and GPS diagnostics (like CLI serialdebug): per port pins, functions, open
 // state and baud, then GPS status and the last bytes received on the GPS port.
-#define MSP2_WING_SERIAL_STATUS               0x5F34
+#define MSP2_GRIPORA_SERIAL_STATUS               0x5F34
 // SRXL2 ESC bus settings (pg/srxl2_esc.h): throttle rate, telemetry poll interval and
 // the channel carrying motor 2 (0 = single motor). CLI srxl2esc_* settings.
-#define MSP2_WING_SRXL2_ESC_CONFIG            0x5F35
-#define MSP2_WING_SET_SRXL2_ESC_CONFIG        0x5F36
+#define MSP2_GRIPORA_SRXL2_ESC_CONFIG            0x5F35
+#define MSP2_GRIPORA_SET_SRXL2_ESC_CONFIG        0x5F36
 // F.Bus master wiring trial: finds the pin swap and polarity on which a device
 // answers. Request: U8 action (0 poll, 1 start, 2 stop), optional. Reply: U8
 // state, U8 combo index, U8 combo count, U8 pinSwap, U8 inverted, U16 valid
 // frames on this wiring, U8 port open.
-#define MSP2_WING_FBUS_MASTER_TRIAL           0x5F37
+#define MSP2_GRIPORA_FBUS_MASTER_TRIAL           0x5F37
 // Servo names (pg/servo_name.h), labels only. 0x5F38-0x5F39 are taken on an open branch.
-// MSP2_WING_SERVO_NAMES reply: U8 servo count, U8 name length N, then per servo N bytes,
-// zero-padded. MSP2_WING_SET_SERVO_NAME request: U8 servo (0-based), then the name, up to
+// MSP2_GRIPORA_SERVO_NAMES reply: U8 servo count, U8 name length N, then per servo N bytes,
+// zero-padded. MSP2_GRIPORA_SET_SERVO_NAME request: U8 servo (0-based), then the name, up to
 // N printable ASCII bytes (none clears it).
-#define MSP2_WING_SERVO_NAMES                 0x5F3A
-#define MSP2_WING_SET_SERVO_NAME              0x5F3B
+#define MSP2_GRIPORA_SERVO_NAMES                 0x5F3A
+#define MSP2_GRIPORA_SET_SERVO_NAME              0x5F3B
 // Drive state (pg/drive.h, flight/drive.c): reverse and low-speed gyro correction.
 // MSP2_GRIPORA_DRIVE_CONFIG reply and MSP2_GRIPORA_SET_DRIVE_CONFIG request: U8 esc mode
 // (driveEscMode_e), U16 wheel diameter mm, U16 gyro min speed and U16 gyro full speed

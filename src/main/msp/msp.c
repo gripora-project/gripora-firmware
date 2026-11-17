@@ -1070,7 +1070,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
     case MSP_SERVO_TRIM:
         // U8 count, then one S16 per servo of the live, runtime-only trim in us from
         // continuous SERVO_TRIM_* adjustments (never saved), then one S16 per servo of
-        // the saved trim (servoTrims PG, from stepped SERVO_TRIM_* and MSP2_WING_SET_SERVO_TRIM). The
+        // the saved trim (servoTrims PG, from stepped SERVO_TRIM_* and MSP2_GRIPORA_SET_SERVO_TRIM). The
         // saved block is appended so a client that only reads the runtime block still
         // works.
         {
@@ -1197,7 +1197,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
 #endif
 
-    case MSP2_WING_EFFECTIVE_PID_GAINS: {
+    case MSP2_GRIPORA_EFFECTIVE_PID_GAINS: {
         pidRuntimeGains_t runtimeGains;
         pidGetRuntimeGains(&runtimeGains);
 
@@ -1227,7 +1227,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
     }
 
-    case MSP2_WING_SERVO_TIMING: {
+    case MSP2_GRIPORA_SERVO_TIMING: {
         // PWM outputs only: the count is how many of the servos, S1 up, have one
         const uint8_t count = getPwmServoCount();
 
@@ -1258,7 +1258,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
 
 #ifdef USE_SERVOS
-    case MSP2_WING_SERVO_NAMES:
+    case MSP2_GRIPORA_SERVO_NAMES:
         // Every servo, so a name stays visible on a servo not currently in use
         sbufWriteU8(dst, MAX_SUPPORTED_SERVOS);
         sbufWriteU8(dst, SERVO_NAME_LENGTH);
@@ -1269,7 +1269,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #endif
 
 #if defined(USE_FBUS_MASTER) || defined(USE_SPORT_MASTER)
-    case MSP2_WING_FBUS_SENSORS: {
+    case MSP2_GRIPORA_FBUS_SENSORS: {
         const uint8_t count = fbusSensorGetObservedCount();
         sbufWriteU8(dst, count);
 
@@ -1304,7 +1304,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
     }
 
-    case MSP2_WING_FBUS_SENSORS_STATUS: {
+    case MSP2_GRIPORA_FBUS_SENSORS_STATUS: {
         // Latest decoded value from each sensor type the driver understands.
         // Each block starts with a flags byte: 0 means no fresh data (nothing
         // within the last second), and its fields are then sent as zero.
@@ -1403,7 +1403,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
     }
 
-    case MSP2_WING_FBUS_MASTER_CONFIG: {
+    case MSP2_GRIPORA_FBUS_MASTER_CONFIG: {
         sbufWriteU8(dst, 2); // payload version -- 2 adds the port wiring
         for (int i = 0; i < FBUS_MASTER_MAX_FORWARDED_SENSORS; i++) {
             sbufWriteU8(dst, fbusMasterConfig()->forwardedSensors[i]);
@@ -1415,7 +1415,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #endif
 
 #ifdef USE_SRXL2_ESC
-    case MSP2_WING_SRXL2_ESC_CONFIG:
+    case MSP2_GRIPORA_SRXL2_ESC_CONFIG:
         // Payload version 1: the SRXL2 ESC bus settings (pg/srxl2_esc.h).
         // throttle_rate_hz is the rate in effect (the driver writes it back from
         // the motor PWM rate it follows); the other two are read at init, so a
@@ -1428,12 +1428,12 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #endif
 
 #ifdef USE_FBUS_MUX_FPGA
-    case MSP2_WING_FBUS_MUX_CONFIG: {
+    case MSP2_GRIPORA_FBUS_MUX_CONFIG: {
         // U8 version, U8 channel count, U8 DShot channel mask (bit 0 = channel 1),
         // U8 configuration UART (fpga_serial, 1-based, 0 = none), U8 status
         // (fbusMuxFpgaStatus_e), U32 mode word sent to the FPGA, then per channel
         // U8 configured mode and U8 mode in use (fbusMuxMode_e), then U8 override held
-        // (MSP2_WING_SET_FBUS_MUX_OVERRIDE). The mode in use is the override's while one
+        // (MSP2_GRIPORA_SET_FBUS_MUX_OVERRIDE). The mode in use is the override's while one
         // is held, and PWM where the requested mode cannot work, see buildModeWord().
         // Polled first: ending a lapsed override changes the status, word and modes.
         const bool overrideActive = fbusMuxFpgaIsOverrideActive();
@@ -1453,7 +1453,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #endif
 
 #ifdef USE_RX_INPUT_BACKUP
-    case MSP2_WING_RX_INPUT_BACKUP_STATUS: {
+    case MSP2_GRIPORA_RX_INPUT_BACKUP_STATUS: {
         // Read-only diagnostics for the configurator/Lua suite: is a backup RX
         // port configured (and with which protocol), is it currently healthy, and
         // is it the channel source in use right now (main RX link down, backup
@@ -1519,7 +1519,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         break;
     }
 
-    case MSP2_WING_RX_INPUT_BACKUP_CONFIG: {
+    case MSP2_GRIPORA_RX_INPUT_BACKUP_CONFIG: {
         // Read-only from the configurator's point of view except via the SET_
         // variant below - reboot is required for a changed provider/inverted/
         // halfDuplex/pinSwap to take effect (rxInputBackupInit() only
@@ -1544,9 +1544,9 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #endif
 
 #ifdef USE_CRSF_SENSORS
-    case MSP2_WING_CRSF_SENSORS_STATUS: {
+    case MSP2_GRIPORA_CRSF_SENSORS_STATUS: {
         // Read-only diagnostics for the configurator's CRSF Sensors debug page
-        // (mirrors MSP2_WING_FBUS_SENSORS' role for the FBUS/S.Port bus): link
+        // (mirrors MSP2_GRIPORA_FBUS_SENSORS' role for the FBUS/S.Port bus): link
         // health counters plus the latest decoded value from each sensor type
         // this driver understands.
         crsfSensorsDebugStats_t stats;
@@ -1655,7 +1655,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU16(dst, boardAlignment()->yawDegrees);
         break;
 
-    case MSP2_WING_BOARD_MOUNT_TRIM:
+    case MSP2_GRIPORA_BOARD_MOUNT_TRIM:
         sbufWriteS16(dst, boardAlignment()->mountTrim.roll);
         sbufWriteS16(dst, boardAlignment()->mountTrim.pitch);
         sbufWriteS16(dst, boardAlignment()->mountTrim.yaw);
@@ -1858,7 +1858,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
 #else
         sbufWriteU16(dst, 0);
 #endif
-        // Next API version: yaw_gyro_reverse (clients detect it by the reply's length)
+        // API 33.0: yaw_gyro_reverse
         sbufWriteU8(dst, pidConfig()->yaw_gyro_reverse);
         break;
 
@@ -1928,7 +1928,7 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         }
         break;
 
-    case MSP2_WING_MODE_OVERRIDE: {
+    case MSP2_GRIPORA_MODE_OVERRIDE: {
         // U16 ms left before the override lapses, U8 count, count x U8 permanent box id.
         boxBitmask_t mask;
         const uint16_t remainingMs = getModeOverride(&mask);
@@ -2397,7 +2397,7 @@ void mspGetOptionalIndexRange(sbuf_t *src, const range_t *range, range_t *value)
 static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_t cmdMSP, sbuf_t *src, sbuf_t *dst, mspPostProcessFnPtr *mspPostProcessFn)
 {
     switch (cmdMSP) {
-    case MSP2_WING_BOARD_AUTO_ALIGN:
+    case MSP2_GRIPORA_BOARD_AUTO_ALIGN:
         if (sbufBytesRemaining(src) >= 1) {
             const uint8_t action = sbufReadU8(src);
             if (action == 1) {
@@ -2415,7 +2415,7 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
         }
         break;
 
-    case MSP2_WING_BOARD_MOUNT_TRIM_AUTO:
+    case MSP2_GRIPORA_BOARD_MOUNT_TRIM_AUTO:
         if (sbufBytesRemaining(src) >= 1) {
             const uint8_t action = sbufReadU8(src);
             if (action == 1) {
@@ -2433,10 +2433,10 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
         break;
 
 #ifdef USE_SERIAL_RX
-    case MSP2_WING_RX_SERIAL_TRIAL:
+    case MSP2_GRIPORA_RX_SERIAL_TRIAL:
         // action: 0 = poll only, 1 = (re)start a scan, 2 = stop/cancel - always
         // restores the pre-trial wiring and reports the resulting status either
-        // way, same start/poll/action shape as MSP2_WING_BOARD_AUTO_ALIGN above.
+        // way, same start/poll/action shape as MSP2_GRIPORA_BOARD_AUTO_ALIGN above.
         if (sbufBytesRemaining(src) >= 1) {
             const uint8_t action = sbufReadU8(src);
             if (action == 1) {
@@ -2459,8 +2459,8 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
 #endif
 
 #ifdef USE_RX_INPUT_BACKUP
-    case MSP2_WING_RX_INPUT_BACKUP_TRIAL:
-        // Same action/status shape as MSP2_WING_RX_SERIAL_TRIAL above, applied
+    case MSP2_GRIPORA_RX_INPUT_BACKUP_TRIAL:
+        // Same action/status shape as MSP2_GRIPORA_RX_SERIAL_TRIAL above, applied
         // to one backup RX port's own inverted/halfDuplex/pinSwap instead. An
         // optional second request byte names the backup port (0 = backup 1,
         // the default, 1 = backup 2); the status gains that index as a trailing
@@ -2489,9 +2489,9 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
 #endif
 
 #ifdef USE_FBUS_MASTER
-    case MSP2_WING_FBUS_MASTER_TRIAL:
+    case MSP2_GRIPORA_FBUS_MASTER_TRIAL:
         // action: 0 = poll only, 1 = (re)start a scan, 2 = stop and put the
-        // wiring back. The same shape as MSP2_WING_ESC_SENSOR_TRIAL.
+        // wiring back. The same shape as MSP2_GRIPORA_ESC_SENSOR_TRIAL.
         if (sbufBytesRemaining(src) >= 1) {
             const uint8_t action = sbufReadU8(src);
             if (action == 1) {
@@ -2515,10 +2515,10 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
 #endif
 
 #ifdef USE_ESC_SENSOR
-    case MSP2_WING_ESC_SENSOR_TRIAL:
+    case MSP2_GRIPORA_ESC_SENSOR_TRIAL:
         // action: 0 = poll only, 1 = (re)start a scan, 2 = stop/cancel - same
-        // start/poll/action shape as MSP2_WING_BOARD_AUTO_ALIGN above, and
-        // the RX wiring auto-detect's MSP2_WING_RX_SERIAL_TRIAL. No
+        // start/poll/action shape as MSP2_GRIPORA_BOARD_AUTO_ALIGN above, and
+        // the RX wiring auto-detect's MSP2_GRIPORA_RX_SERIAL_TRIAL. No
         // `inverted` field here (ESC telemetry never inverts) - just
         // halfDuplex/pinSwap.
         if (sbufBytesRemaining(src) >= 1) {
@@ -2568,7 +2568,7 @@ static mspResult_e mspFcProcessOutCommandWithArg(mspDescriptor_t srcDesc, int16_
     // Serial port diagnostics, like the CLI's serialdebug: every port, then an
     // optional detail block for the port id in the request, with one sub-block per
     // function on it that reports state (GPS for now).
-    case MSP2_WING_SERIAL_STATUS: {
+    case MSP2_GRIPORA_SERIAL_STATUS: {
         const int detailId = sbufBytesRemaining(src) ? sbufReadU8(src) : 0xFF;
         sbufWriteU8(dst, 1); // payload version
 
@@ -3270,7 +3270,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         break;
     }
 
-    case MSP2_WING_SET_SERVO_PROBE: {
+    case MSP2_GRIPORA_SET_SERVO_PROBE: {
         // U8 servo, S16 offset us from mid, U16 timeout ms (0 clears; otherwise clamped
         // to 500-30000). The client re-sends it before the timeout to keep the servo there.
         if (dataSize != 5) {
@@ -3284,7 +3284,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         break;
     }
 
-    case MSP2_WING_SET_SERVO_TRIM: {
+    case MSP2_GRIPORA_SET_SERVO_TRIM: {
         // U8 servo, S16 saved trim in us. Limited to SERVO_TRIM_LIMIT_PERCENT of the
         // servo's scale, like every other way of setting it. Never changes the center.
         if (dataSize != 3) {
@@ -3300,7 +3300,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
     }
 
 #ifdef USE_SERVOS
-    case MSP2_WING_SET_SERVO_NAME: {
+    case MSP2_GRIPORA_SET_SERVO_NAME: {
         // U8 servo, then up to SERVO_NAME_LENGTH bytes of name (none clears it)
         if (dataSize < 1 || dataSize > 1 + SERVO_NAME_LENGTH) {
             return MSP_RESULT_ERROR;
@@ -3765,7 +3765,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         boardAlignmentMutable()->yawDegrees = sbufReadU16(src);
         break;
 
-    case MSP2_WING_SET_BOARD_MOUNT_TRIM:
+    case MSP2_GRIPORA_SET_BOARD_MOUNT_TRIM:
         if (dataSize < 3 * sizeof(int16_t)) {
             return MSP_RESULT_ERROR;
         }
@@ -3808,7 +3808,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             }
 #endif
         }
-        // Next API version: optional yaw_gyro_reverse (0 or 1)
+        // API 33.0: optional yaw_gyro_reverse (0 or 1)
         bool hasYawGyroReverse = false;
         uint8_t yawGyroReverse = 0;
         if (sbufBytesRemaining(src) >= 1) {
@@ -3969,7 +3969,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         }
         break;
 
-    case MSP2_WING_SET_MODE_OVERRIDE: {
+    case MSP2_GRIPORA_SET_MODE_OVERRIDE: {
         // U16 timeout ms (clamped to 500-30000), U8 count, count x U8 permanent box id.
         // Replaces the whole override; timeout 0 clears it. Count 0 holds the setup state with
         // no mode forced (a setup tool is in charge, arming is blocked). The client re-sends
@@ -4467,11 +4467,11 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
 #endif
 
 #if defined(USE_FBUS_MASTER) || defined(USE_SPORT_MASTER)
-    case MSP2_WING_CLEAR_FBUS_SENSORS:
+    case MSP2_GRIPORA_CLEAR_FBUS_SENSORS:
         fbusSensorClearObserved();
         break;
 
-    case MSP2_WING_SET_FBUS_MASTER_CONFIG:
+    case MSP2_GRIPORA_SET_FBUS_MASTER_CONFIG:
         if (dataSize < FBUS_MASTER_MAX_FORWARDED_SENSORS) {
             return MSP_RESULT_ERROR;
         }
@@ -4508,8 +4508,8 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
 #endif
 
 #ifdef USE_SRXL2_ESC
-    case MSP2_WING_SET_SRXL2_ESC_CONFIG: {
-        // Same fields as MSP2_WING_SRXL2_ESC_CONFIG without the version byte.
+    case MSP2_GRIPORA_SET_SRXL2_ESC_CONFIG: {
+        // Same fields as MSP2_GRIPORA_SRXL2_ESC_CONFIG without the version byte.
         // Out-of-range values are repaired by validateAndFixSrxl2escConfig()
         // and the driver (an invalid motor 2 channel reads as off).
         // Exact length, so a GET-format payload (leading version byte) is refused.
@@ -4534,7 +4534,7 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
 #endif
 
 #ifdef USE_FBUS_MUX_FPGA
-    case MSP2_WING_SET_FBUS_MUX_CONFIG: {
+    case MSP2_GRIPORA_SET_FBUS_MUX_CONFIG: {
         // U8 version, U8 channel count, then count x U8 mode (fbusMuxMode_e). The FPGA
         // is configured at boot, so the modes apply after save and reboot.
         if (sbufBytesRemaining(src) < 1) {
@@ -4549,7 +4549,7 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
         break;
     }
 
-    case MSP2_WING_SET_FBUS_MUX_OVERRIDE: {
+    case MSP2_GRIPORA_SET_FBUS_MUX_OVERRIDE: {
         // U16 timeout ms, U8 channel count, then count x U8 mode. Applies the modes at
         // once without saving them, e.g. FBUS on one output at a time to give XACT servos
         // their Physical IDs. The client re-sends it before the timeout (clamped to
@@ -4575,10 +4575,10 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
 #endif
 
 #ifdef USE_RX_INPUT_BACKUP
-    case MSP2_WING_SET_RX_INPUT_BACKUP_CONFIG:
+    case MSP2_GRIPORA_SET_RX_INPUT_BACKUP_CONFIG:
         // Version 1 payload (5 bytes) sets backup port 0 only and leaves the
         // others alone. Version 2 appends `portCount` and four bytes per further
-        // port, mirroring MSP2_WING_RX_INPUT_BACKUP_CONFIG.
+        // port, mirroring MSP2_GRIPORA_RX_INPUT_BACKUP_CONFIG.
         if (dataSize < 5) {
             return MSP_RESULT_ERROR;
         }
@@ -4602,7 +4602,7 @@ static mspResult_e mspCommonProcessInCommand(mspDescriptor_t srcDesc, int16_t cm
                 }
             }
         }
-        // Unlike MSP2_WING_SET_FBUS_MASTER_CONFIG above, there's no live-reload
+        // Unlike MSP2_GRIPORA_SET_FBUS_MASTER_CONFIG above, there's no live-reload
         // here - rxInputBackupInit() only (re-)opens the port at boot, so this
         // needs the same save-and-reboot flow every other serial-port function/
         // config change already goes through.

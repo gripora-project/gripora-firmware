@@ -104,7 +104,7 @@ bool crsfSensorsGetBaroUse(void);
 
 bool crsfSensorsGetRpmUse(void);
 
-// Link-level rx diagnostics, surfaced to the configurator (MSP2_WING_CRSF_SENSORS_STATUS)
+// Link-level rx diagnostics, surfaced to the configurator (MSP2_GRIPORA_CRSF_SENSORS_STATUS)
 // as a debug page for troubleshooting sensor wiring/protocol issues - mirrors
 // the FBUS/S.Port Sensors diagnostic tab's role for that bus.
 #define CRSF_SENSORS_DEBUG_RAW_LEN 16

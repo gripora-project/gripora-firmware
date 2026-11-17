@@ -27,7 +27,7 @@
 // Saved servo trim in us, one per servo. It is added at the servo output on top of
 // the center (servoParams()->mid) and never changes it, so the center and the
 // min/max end stops set on the bench stay where they were put. Stepped SERVO_TRIM_*
-// adjustments and MSP2_WING_SET_SERVO_TRIM write it (see flight/servos.c).
+// adjustments and MSP2_GRIPORA_SET_SERVO_TRIM write it (see flight/servos.c).
 typedef struct {
     int16_t trim;
 } servoTrim_t;

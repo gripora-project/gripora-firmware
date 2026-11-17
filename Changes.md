@@ -3,6 +3,14 @@
 This file collects the changes in the firmware that affect the APIs or how the
 car drives. Entries below "Inherited from WingFlight" predate the Gripora fork.
 
+## MSP API 33.0
+
+Gripora's MSP protocol is its own from here: the API version is 33.0
+(WingFlight is on 22.x), and the Gripora-specific MSP2 messages are named
+`MSP2_GRIPORA_*` instead of `MSP2_WING_*`. The message ids and payloads are
+unchanged. Everything listed under the Gripora sections below is part of
+API 33.0; clients accept 33.x only.
+
 ## Drive state: reverse and low-speed gyro
 
 The steering loop now knows which way the car is travelling and how fast
@@ -40,7 +48,7 @@ The steering loop now knows which way the car is travelling and how fast
   (0 neutral, 1 forward, 2 brake, 3 reverse), direction, speed x10 (km/h),
   speed known, correction scale x1000, motor 1 RPM, stopped.
 
-MSP, for the next API version (the version is not bumped here):
+MSP, API 33.0:
 
 - `MSP2_GRIPORA_DRIVE_CONFIG` (0x5F3C) reply and
   `MSP2_GRIPORA_SET_DRIVE_CONFIG` (0x5F3D) request: `U8 esc_mode`
@@ -73,7 +81,7 @@ order.
   gyro feedback of the steering loop, for when the gyro corrects the wrong way.
   Board orientation and the attitude estimate are unchanged. Carried as an
   optional trailing U8 in `MSP_MIXER_CONFIG` / `MSP_SET_MIXER_CONFIG` (for the
-  next API version; clients can detect it by the reply's length). The servo
+  API 33.0). The servo
   update rate before it is now read even on builds without servos.
 
 ## Aircraft features removed (car conversion, step 1)
@@ -100,14 +108,14 @@ governor and tune advisor.
   PASSTHROUGH is reported as `GYRO OFF` and bypasses only the steering.
 - Only yaw is stabilised; roll and pitch setpoints and outputs are zero. The
   3-axis attitude estimate still runs.
-- MSP commands removed (unsupported reply): `MSP2_WING_GOVERNOR_CONFIG`,
-  `MSP2_WING_SET_GOVERNOR_CONFIG`, `MSP2_WING_TV_EFFECTIVE_PID_GAINS`,
-  `MSP2_WING_TV_PID_CONFIG`, `MSP2_WING_SET_TV_PID_CONFIG`,
-  `MSP2_WING_SELECT_TV_PROFILE`, `MSP2_WING_COPY_TV_PID_PROFILE`,
+- MSP commands removed (unsupported reply): `MSP2_GRIPORA_GOVERNOR_CONFIG`,
+  `MSP2_GRIPORA_SET_GOVERNOR_CONFIG`, `MSP2_GRIPORA_TV_EFFECTIVE_PID_GAINS`,
+  `MSP2_GRIPORA_TV_PID_CONFIG`, `MSP2_GRIPORA_SET_TV_PID_CONFIG`,
+  `MSP2_GRIPORA_SELECT_TV_PROFILE`, `MSP2_GRIPORA_COPY_TV_PID_PROFILE`,
   `MSP_GPS_RESCUE`, `MSP_SET_GPS_RESCUE`, `MSP_GPS_RESCUE_PIDS`,
-  `MSP_SET_GPS_RESCUE_PIDS`, `MSP2_WING_GPS_NAV_CONFIG`,
-  `MSP2_WING_SET_GPS_NAV_CONFIG`, `MSP2_WING_TUNE_ADVISOR`,
-  `MSP2_WING_TUNE_ADVISOR_CLEAR`.
+  `MSP_SET_GPS_RESCUE_PIDS`, `MSP2_GRIPORA_GPS_NAV_CONFIG`,
+  `MSP2_GRIPORA_SET_GPS_NAV_CONFIG`, `MSP2_GRIPORA_TUNE_ADVISOR`,
+  `MSP2_GRIPORA_TUNE_ADVISOR_CLEAR`.
 - Every other MSP message keeps its layout. In `MSP_PID_PROFILE` the angle,
   trainer, attitude hold, cross-axis relax, attitude limit, level damping,
   snap relax and prop-hang fields are zero placeholders.

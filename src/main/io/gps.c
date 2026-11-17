@@ -426,7 +426,7 @@ bool gpsIsEnabled(void)
     return gpsEnabled;
 }
 
-// Last bytes read from the GPS port, for diagnostics (MSP2_WING_SERIAL_STATUS)
+// Last bytes read from the GPS port, for diagnostics (MSP2_GRIPORA_SERIAL_STATUS)
 #define GPS_RECENT_BYTES 64     // power of two, so the index wraps cleanly
 static uint8_t gpsRecentBytes[GPS_RECENT_BYTES];
 static uint32_t gpsRxByteCount;

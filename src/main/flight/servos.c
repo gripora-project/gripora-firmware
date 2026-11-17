@@ -63,7 +63,7 @@ static FAST_DATA_ZERO_INIT float        servoOutput[MAX_SUPPORTED_SERVOS];
 static FAST_DATA_ZERO_INIT float        servoResolution[MAX_SUPPORTED_SERVOS];
 
 // The rate each PWM output runs at (servo_pwm_rate, as it was at boot) and
-// the first output on its hardware timer, for MSP2_WING_SERVO_TIMING.
+// the first output on its hardware timer, for MSP2_GRIPORA_SERVO_TIMING.
 static uint16_t servoRunRate[MAX_SUPPORTED_SERVOS];
 static uint8_t  servoTimerGroup[MAX_SUPPORTED_SERVOS];
 
@@ -74,7 +74,7 @@ static FAST_DATA_ZERO_INIT int16_t      servoOverride[MAX_SUPPORTED_SERVOS];
 static timeMs_t servoOverrideExpiryMs[MAX_SUPPORTED_SERVOS];
 static bool     servoOverrideTimed[MAX_SUPPORTED_SERVOS];
 
-// Servo probe (MSP2_WING_SET_SERVO_PROBE): holds a servo at mid + offset us,
+// Servo probe (MSP2_GRIPORA_SET_SERVO_PROBE): holds a servo at mid + offset us,
 // bypassing the mixer, scale, reverse, speed, trim, curves and the min/max travel
 // limits, so a setup tool can find the mechanical end stops without widening the
 // stored limits. Only the signal range applies. Always has a timeout.
