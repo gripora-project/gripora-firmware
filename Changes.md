@@ -52,6 +52,13 @@ MSP, for the next API version (the version is not bumped here):
   AUTO), `U8` commanded state, `S8` travel direction (+1/-1), `U8` speed
   known, `U16` speed (0.1 km/h), `U8` correction scale (%).
 
+## Car channel order
+
+The default channel map is `RT1234AE`: CH1 steering, CH2 throttle, CH3-CH6
+AUX1-4, as on car radios. Roll and pitch are unused and parked on CH7/CH8.
+The receiver config PG is reset on upgrade (v4), so `map` returns to this
+order.
+
 ## Car mixer preset
 
 - `model_type` is now `CAR` (0) or `CUSTOM` (1). The aircraft types are gone;

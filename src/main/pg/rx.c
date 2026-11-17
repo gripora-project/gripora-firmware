@@ -33,7 +33,8 @@
 #include "rx/rx.h"
 #include "rx/rx_spi.h"
 
-PG_REGISTER_WITH_RESET_FN(rxConfig_t, rxConfig, PG_RX_CONFIG, 3);
+// v4: car channel order (RT1234AE) by default
+PG_REGISTER_WITH_RESET_FN(rxConfig_t, rxConfig, PG_RX_CONFIG, 4);
 void pgResetFn_rxConfig(rxConfig_t *rxConfig)
 {
     RESET_CONFIG_2(rxConfig_t, rxConfig,
@@ -60,11 +61,9 @@ void pgResetFn_rxConfig(rxConfig_t *rxConfig)
         .crsf_use_negotiated_baud = false,
     );
 
-#ifdef RX_CHANNELS_TAER
-    parseRcChannels("TAER1234", rxConfig);
-#else
-    parseRcChannels("AETR1234", rxConfig);
-#endif
+    // Car radios: CH1 steering, CH2 throttle, CH3-CH6 AUX1-4. Roll and pitch
+    // are unused (only steering is stabilised) and are parked on CH7/CH8.
+    parseRcChannels("RT1234AE", rxConfig);
 }
 
 PG_REGISTER_WITH_RESET_TEMPLATE(rcControlsConfig_t, rcControlsConfig, PG_RC_CONTROLS_CONFIG, 2);
