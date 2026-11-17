@@ -85,6 +85,7 @@
 #include "fc/runtime_config.h"
 
 #include "flight/drive.h"
+#include "flight/drive_aids.h"
 #include "flight/failsafe.h"
 #include "flight/imu.h"
 #include "flight/mixer.h"
@@ -130,6 +131,7 @@
 #ifdef USE_SRXL2_ESC
 #include "pg/srxl2_esc.h"
 #include "pg/drive.h"
+#include "pg/drive_aids.h"
 #endif
 
 #include "rx/rx.h"
@@ -1255,6 +1257,24 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, driveSpeedKnown());
         sbufWriteU16(dst, constrain(lrintf(driveGetSpeedKmh() * 10), 0, UINT16_MAX));
         sbufWriteU8(dst, constrain(lrintf(driveGetCorrectionScale() * 100), 0, 100));
+        break;
+
+    case MSP2_GRIPORA_DRIVE_AIDS_CONFIG:
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_mode);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_freq);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_floor);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_hold);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_trigger);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_dyn_freq);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_dyn_hold);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_freq);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_hold);
+        break;
+
+    case MSP2_GRIPORA_DRIVE_AIDS_STATUS:
+        sbufWriteU8(dst, driveAidsGetFlags());
+        sbufWriteU16(dst, (uint16_t)(int16_t)constrain(lrintf(driveAidsGetThrottleIn() * 1000), -1000, 1000));
+        sbufWriteU16(dst, (uint16_t)(int16_t)constrain(lrintf(driveAidsGetThrottleOut() * 1000), -1000, 1000));
         break;
 
 #ifdef USE_SERVOS
@@ -3344,6 +3364,45 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         break;
     }
 
+    case MSP2_GRIPORA_SET_DRIVE_AIDS_CONFIG: {
+        // Every field is read and checked before any is applied, so a request that is
+        // refused changes nothing. Later aids append fields; a shorter request leaves them as
+        // they are.
+        if (dataSize < 9) {
+            return MSP_RESULT_ERROR;
+        }
+        const uint8_t absMode = sbufReadU8(src);
+        const uint8_t absFreq = sbufReadU8(src);
+        const uint8_t absFloor = sbufReadU8(src);
+        const uint8_t absHold = sbufReadU8(src);
+        const uint8_t absTrigger = sbufReadU8(src);
+        const uint8_t absDynFreq = sbufReadU8(src);
+        const uint8_t absDynHold = sbufReadU8(src);
+        const uint8_t absCornerFreq = sbufReadU8(src);
+        const uint8_t absCornerHold = sbufReadU8(src);
+        if (absMode >= DRIVE_ABS_MODE_COUNT ||
+            absFreq < DRIVE_ABS_FREQ_MIN || absFreq > DRIVE_ABS_FREQ_MAX ||
+            absFloor > DRIVE_ABS_FLOOR_MAX ||
+            absHold > DRIVE_ABS_HOLD_MAX ||
+            absTrigger < DRIVE_ABS_TRIGGER_MIN || absTrigger > DRIVE_ABS_TRIGGER_MAX ||
+            absDynFreq < DRIVE_ABS_FREQ_MIN || absDynFreq > DRIVE_ABS_FREQ_MAX ||
+            absDynHold > DRIVE_ABS_HOLD_MAX ||
+            absCornerFreq > DRIVE_ABS_CORNER_FREQ_MAX ||
+            absCornerHold > DRIVE_ABS_HOLD_MAX) {
+            return MSP_RESULT_ERROR;
+        }
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_mode = absMode;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_freq = absFreq;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_floor = absFloor;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_hold = absHold;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_trigger = absTrigger;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_dyn_freq = absDynFreq;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_dyn_hold = absDynHold;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_corner_freq = absCornerFreq;
+        driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_corner_hold = absCornerHold;
+        break;
+    }
+
     case MSP_SET_SERVO_CENTER:
         // payload: U8 idx + U16 mid  => 3 bytes
         if (dataSize != 1 + 2) {
@@ -3367,6 +3426,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
     case MSP_SET_RESET_CURR_PID:
         resetPidProfile(currentPidProfile);
         resetFwSpaConfig(fwSpaConfigsMutable(getCurrentPidProfileIndex()));
+        resetDriveAidsConfig(driveAidsConfigsMutable(getCurrentPidProfileIndex()));
         break;
 
     case MSP_SET_SENSOR_ALIGNMENT:

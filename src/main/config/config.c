@@ -71,6 +71,7 @@
 #include "pg/beeper.h"
 #include "pg/beeper_dev.h"
 #include "pg/drive.h"
+#include "pg/drive_aids.h"
 #include "pg/esc_sensor.h"
 #include "pg/gyrodev.h"
 #include "pg/motor.h"
@@ -546,6 +547,7 @@ static void validateAndFixConfig(void)
 
     validateAndFixPositionConfig();
     validateAndFixDriveConfig();
+    validateAndFixDriveAidsConfig();
     validateAndFixServoConfig();
     validateAndFixMixerConfig();
     validateAndFixRxConfig();

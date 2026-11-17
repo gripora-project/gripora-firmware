@@ -40,6 +40,7 @@
 #include "fc/rc_modes.h"
 #include "fc/rc.h"
 
+#include "flight/drive_aids.h"
 #include "flight/failsafe.h"
 #include "flight/pid.h"
 #include "flight/imu.h"
@@ -406,7 +407,9 @@ static void mixerUpdateInputs(void)
     // normally the RX's own per-channel fallback. failsafe_throttle defaults to neutral (1500us).
     // Once failsafe.c actually disarms (FAILSAFE_LANDED), motors.c's own independent
     // ARMING_FLAG(ARMED) gate takes over the motor output regardless of this value.
-    float throttle = getThrottle();
+    // The drive aids (ABS) shape the pilot's command first; they pass it through unchanged
+    // while disarmed, in failsafe and with DRIVE AIDS OFF, and failsafe replaces it below.
+    float throttle = driveAidsApply(getThrottle(), pidGetDT());
     if (failsafeIsActive()) {
         throttle = failsafeGetThrottle();
     }

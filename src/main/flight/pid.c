@@ -51,6 +51,8 @@
 #include "fc/runtime_config.h"
 
 #include "flight/drive.h"
+
+#include "pg/drive_aids.h"
 #include "flight/mixer.h"
 #include "flight/rpm_filter.h"
 #include "flight/speed_atten.h"
@@ -595,6 +597,7 @@ void INIT_CODE pidCopyProfile(uint8_t dstPidProfileIndex, uint8_t srcPidProfileI
         dstPidProfileIndex != srcPidProfileIndex) {
         memcpy(pidProfilesMutable(dstPidProfileIndex), pidProfilesMutable(srcPidProfileIndex), sizeof(pidProfile_t));
         memcpy(fwSpaConfigsMutable(dstPidProfileIndex), fwSpaConfigs(srcPidProfileIndex), sizeof(fwSpaConfig_t));
+        memcpy(driveAidsConfigsMutable(dstPidProfileIndex), driveAidsConfigs(srcPidProfileIndex), sizeof(driveAidsConfig_t));
     }
 }
 

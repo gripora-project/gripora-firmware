@@ -11,6 +11,58 @@ Gripora's MSP protocol is its own from here: the API version is 33.0
 unchanged. Everything listed under the Gripora sections below is part of
 API 33.0; clients accept 33.x only.
 
+## Drive aids: ABS (timed)
+
+A new stage shapes the pilot's throttle/brake command before it reaches the
+ESC (`src/main/flight/drive_aids.c`, called from `mixer.c` on
+`STABILIZED_THROTTLE`). ABS is its first aid; traction control and
+speed-based steering will follow in the same settings group.
+
+- Past `drive_abs_trigger` of brake the brake pulses at `drive_abs_freq`:
+  each cycle holds the brake for half the cycle plus `drive_abs_hold` (at
+  most 85 % of the cycle), then eases it to `drive_abs_floor` % of the
+  command. `DYNAMIC` moves the rate towards `drive_abs_dyn_freq`, the floor
+  towards 60 % of `drive_abs_floor` and the hold towards `drive_abs_dyn_hold`
+  as the brake deepens. `drive_abs_corner_freq` adds rate and
+  `drive_abs_corner_hold` moves the hold with steering lock; the shorter hold
+  wins. The timing uses the sticks and time only, no sensors.
+- ABS acts only while the drive state has the ESC braking a car that is not
+  RPM-confirmed stopped. With `drive_esc_mode` `FWD_REV` and no RPM source the
+  firmware can't tell a brake from reverse, so ABS does not run there.
+- The released brake never drops below 10 % brake, so a brake-then-reverse ESC
+  never sees neutral in the middle of a brake.
+- The aids pass the command through unchanged while disarmed, in failsafe and
+  with the new mode `DRIVE AIDS OFF` (permanent id 66). Mixer rules fed from
+  the RC throttle input bypass them. Everything is OFF by default.
+- The settings are per PID profile, like `fw_spa_*`, so a profile switch
+  changes them with the tune (a track or surface preset). Profile copy and
+  profile reset include them.
+- New PG `PG_DRIVE_AIDS_CONFIG` (1029), one entry per PID profile. CLI
+  profile settings (defaults):
+  `drive_abs_mode` (`OFF`; `STATIC`, `DYNAMIC`), `drive_abs_freq` (10 Hz,
+  2..33), `drive_abs_floor` (40 %), `drive_abs_hold` (20 ms, 0..100),
+  `drive_abs_trigger` (30 %, 5..100), `drive_abs_dyn_freq` (15 Hz, 2..33),
+  `drive_abs_dyn_hold` (0 = off, ms), `drive_abs_corner_freq` (0 = off, Hz,
+  0..10), `drive_abs_corner_hold` (0 = off, ms).
+- New Blackbox header `drive_abs` (the nine settings of the profile in
+  use).
+- New debug mode `DRIVE_AIDS` (appended): throttle in x1000, throttle out
+  x1000, flags, ABS rate x10, floor x1000, hold ms, cycle phase ms, steering
+  x1000.
+
+MSP, upcoming API version:
+
+- `MSP2_GRIPORA_DRIVE_AIDS_CONFIG` (0x5F3F) reply and
+  `MSP2_GRIPORA_SET_DRIVE_AIDS_CONFIG` (0x5F40) request, for the current PID
+  profile, all `U8`: abs mode
+  (0 OFF, 1 STATIC, 2 DYNAMIC), freq, floor, hold, trigger, dyn freq, dyn
+  hold, corner freq, corner hold. Later aids append fields; SET needs at least
+  these 9 bytes, refuses the whole request on any out-of-range value and
+  leaves fields it was not sent unchanged.
+- `MSP2_GRIPORA_DRIVE_AIDS_STATUS` (0x5F41) reply: `U8` flags (bit 0 aids on,
+  bit 1 ABS armed, bit 2 ABS releasing), `S16` throttle in and `S16` throttle
+  out (x1000).
+
 ## Drive state: reverse and low-speed gyro
 
 The steering loop now knows which way the car is travelling and how fast

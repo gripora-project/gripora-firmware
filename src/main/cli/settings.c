@@ -79,6 +79,7 @@
 #include "pg/piniobox.h"
 #include "pg/position.h"
 #include "pg/drive.h"
+#include "pg/drive_aids.h"
 #include "pg/rx.h"
 #include "pg/rx_pwm.h"
 #include "pg/rx_spi.h"
@@ -458,6 +459,10 @@ static const char * const lookupTableDriveEscMode[] = {
     "AUTO", "FWD_BRK_REV", "FWD_REV", "FWD_BRK",
 };
 
+static const char * const lookupTableDriveAbsMode[] = {
+    "OFF", "STATIC", "DYNAMIC",
+};
+
 #ifdef USE_SMARTFUEL
 static const char * const lookupTableSmartFuelMode[] = {
     "OFF", "VOLTAGE", "CURRENT", "COMBINED",
@@ -562,6 +567,7 @@ const lookupTableEntry_t lookupTables[] = {
     LOOKUP_TABLE_ENTRY(lookupTableEdgeMode),
     LOOKUP_TABLE_ENTRY(lookupTableParamType),
     LOOKUP_TABLE_ENTRY(lookupTableDriveEscMode),
+    LOOKUP_TABLE_ENTRY(lookupTableDriveAbsMode),
 #ifdef USE_SMARTFUEL
     LOOKUP_TABLE_ENTRY(lookupTableSmartFuelMode),
 #endif
@@ -967,6 +973,17 @@ const clivalue_t valueTable[] = {
     { "drive_gyro_full_speed",      VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 1, DRIVE_GYRO_SPEED_MAX }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_full_speed) },
     { "drive_gyro_reverse",         VAR_UINT8  | MASTER_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_OFF_ON }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_reverse) },
     { "drive_gyro_reverse_gain",    VAR_UINT8  | MASTER_VALUE, .config.minmaxUnsigned = { 0, DRIVE_GYRO_REVERSE_GAIN_MAX }, PG_DRIVE_CONFIG, offsetof(driveConfig_t, gyro_reverse_gain) },
+
+// PG_DRIVE_AIDS_CONFIG
+    { "drive_abs_mode",              VAR_UINT8  | PROFILE_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_DRIVE_ABS_MODE }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_mode) },
+    { "drive_abs_freq",              VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { DRIVE_ABS_FREQ_MIN, DRIVE_ABS_FREQ_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_freq) },
+    { "drive_abs_floor",             VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_FLOOR_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_floor) },
+    { "drive_abs_hold",              VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_HOLD_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_hold) },
+    { "drive_abs_trigger",           VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { DRIVE_ABS_TRIGGER_MIN, DRIVE_ABS_TRIGGER_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_trigger) },
+    { "drive_abs_dyn_freq",          VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { DRIVE_ABS_FREQ_MIN, DRIVE_ABS_FREQ_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_dyn_freq) },
+    { "drive_abs_dyn_hold",          VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_HOLD_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_dyn_hold) },
+    { "drive_abs_corner_freq",       VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_CORNER_FREQ_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_corner_freq) },
+    { "drive_abs_corner_hold",       VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_HOLD_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_corner_hold) },
 
 // PG_PID_PROFILE
 #ifdef USE_PROFILE_NAMES

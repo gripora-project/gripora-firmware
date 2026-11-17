@@ -131,6 +131,7 @@ typedef enum {
     DEBUG_UNUSED_84,    // was PROP_HANG -- slot kept so later modes keep their numbers
     DEBUG_FBUS,
     DEBUG_DRIVE,
+    DEBUG_DRIVE_AIDS,
     DEBUG_COUNT
 } debugType_e;
 

@@ -92,6 +92,9 @@ References:
   (motor RPM, gear ratio, tyre diameter). The steering loop negates the yaw gyro rate while reversing and scales P, I
   and D (never F/B) by `driveGetCorrectionScale()`: zero at a standstill, reduced in reverse, faded in after a
   direction change made without RPM. The yaw I-term is cleared on a direction change.
+- The drive aids ([src/main/flight/drive_aids.c](src/main/flight/drive_aids.c)) shape the throttle/brake command
+  in the mixer before failsafe: timed ABS for now. They only move the command towards neutral, never across it,
+  and an ABS release never drops below 10 % brake (a brake-then-reverse ESC must not see neutral mid-brake).
 
 References:
 
@@ -179,7 +182,7 @@ Feature branch dev builds embed `FC_VER_SUFFIX` from the `feature/<name>` branch
 the workflow fail with `fc_version_string_too_long`. This is a real compile failure, not a superseded run; either
 keep feature branch names short or update `.github/workflows/dev-build.yml` to truncate the generated suffix.
 
-Unit tests exist for PID, setpoint, curves, maths, speed attenuation, drive state, servos and telemetry status. The mixer,
+Unit tests exist for PID, setpoint, curves, maths, speed attenuation, drive state, drive aids, servos and telemetry status. The mixer,
 failsafe and fc/core.c arming paths have none, so changes there need extra care and, where possible, a new test.
 
 ## Before Changing Flight-Control Code

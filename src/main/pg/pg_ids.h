@@ -184,6 +184,7 @@
 // 1026 is taken by PG_REVERSE_FLIGHT_CONFIG on an open branch (feature/4d)
 #define PG_SERVO_NAMES               1027
 #define PG_DRIVE_CONFIG              1028
+#define PG_DRIVE_AIDS_CONFIG         1029
 
 // OSD configuration -- removed (OSD)
 //#define PG_OSD_FONT_CONFIG 2047

@@ -79,6 +79,7 @@ typedef enum {
     BOXTHRUSTVECTOR,    // reserved (removed) -- kept to avoid renumbering later ids
     BOXTVHOLD,          // reserved (removed) -- kept to avoid renumbering later ids
     BOXTRADITIONAL,     // reserved (removed) -- kept to avoid renumbering later ids
+    BOXDRIVEAIDSOFF,    // DRIVE AIDS OFF: the throttle/brake command passes through unshaped (flight/drive_aids.c)
 
     CHECKBOX_ITEM_COUNT,
 

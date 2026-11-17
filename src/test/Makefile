@@ -407,6 +407,7 @@ pid_unittest_SRC :=  \
 		$(USER_DIR)/flight/drive.c \
 		$(USER_DIR)/flight/speed_atten.c \
 		$(USER_DIR)/pg/drive.c \
+		$(USER_DIR)/pg/drive_aids.c \
 		$(USER_DIR)/pg/pid.c \
 		$(USER_DIR)/pg/pg.c \
 		$(USER_DIR)/common/crc.c \
@@ -435,6 +436,15 @@ drive_unittest_SRC := \
         $(USER_DIR)/common/streambuf.c \
         $(USER_DIR)/flight/drive.c \
         $(USER_DIR)/pg/drive.c \
+        $(USER_DIR)/pg/pg.c
+
+drive_aids_unittest_SRC := \
+        $(USER_DIR)/build/debug.c \
+        $(USER_DIR)/common/crc.c \
+        $(USER_DIR)/common/maths.c \
+        $(USER_DIR)/common/streambuf.c \
+        $(USER_DIR)/flight/drive_aids.c \
+        $(USER_DIR)/pg/drive_aids.c \
         $(USER_DIR)/pg/pg.c
 
 fbus_sensor_unittest_SRC := \

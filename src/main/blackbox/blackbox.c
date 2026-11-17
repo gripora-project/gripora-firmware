@@ -72,6 +72,7 @@
 #include "io/serial.h"
 
 #include "pg/blackbox.h"
+#include "pg/drive_aids.h"
 #include "pg/motor.h"
 #include "pg/rx.h"
 
@@ -1688,6 +1689,16 @@ static bool blackboxWriteSysinfo(void)
         BLACKBOX_PRINT_HEADER_LINE("fw_spa", "%d,%d,%d",                    fwSpaConfigs(getCurrentPidProfileIndex())->gain,
                                                                             fwSpaConfigs(getCurrentPidProfileIndex())->curve,
                                                                             fwSpaConfigs(getCurrentPidProfileIndex())->speed_max);
+        BLACKBOX_PRINT_HEADER_LINE("drive_abs", "%d,%d,%d,%d,%d,%d,%d,%d,%d",
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_mode,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_freq,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_floor,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_hold,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_trigger,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_dyn_freq,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_dyn_hold,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_freq,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_hold);
         BLACKBOX_PRINT_HEADER_ARRAY("master_gain", "%d", 3,                 currentPidProfile->master_gain);
         BLACKBOX_PRINT_HEADER_ARRAY("gain_curve", "%d", 3,                  currentPidProfile->gain_curve);
         // One line per curve; add lines here if GAIN_CURVE_COUNT grows
