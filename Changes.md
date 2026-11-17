@@ -11,6 +11,13 @@ Gripora's MSP protocol is its own from here: the API version is 33.0
 unchanged. Everything listed under the Gripora sections below is part of
 API 33.0; clients accept 33.x only.
 
+## Speed attenuation top speed for a car
+
+`fw_spa_speed_max`, the speed at the right edge of the speed attenuation
+curve, defaults to 60 km/h (was 150) and ranges 10..300 km/h (was 10..600).
+The SPA PG is reset on upgrade (v1), so `fw_spa_gain`, `fw_spa_curve` and
+`fw_spa_speed_max` return to their defaults in every profile.
+
 ## Drive aids: ABS (timed)
 
 A new stage shapes the pilot's throttle/brake command before it reaches the

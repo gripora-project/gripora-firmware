@@ -157,8 +157,8 @@ PG_DECLARE_ARRAY(pidProfile_t, PID_PROFILE_COUNT, pidProfiles);
 // it did not reset existing PID profiles.
 // Mirrors fw_tpa_gain/fw_tpa_curve with speed (motor RPM wheel speed, else GPS) in place of throttle.
 #define FW_SPA_SPEED_MAX_MIN      10
-#define FW_SPA_SPEED_MAX_MAX      600
-#define FW_SPA_SPEED_MAX_DEFAULT  150
+#define FW_SPA_SPEED_MAX_MAX      300
+#define FW_SPA_SPEED_MAX_DEFAULT  60
 
 typedef struct {
     uint8_t  gain;       // Baseline scale, percent (100 = unscaled) - mirrors fw_tpa_gain

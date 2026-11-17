@@ -141,7 +141,7 @@ void pgResetFn_pidProfiles(pidProfile_t *pidProfiles)
     }
 }
 
-PG_REGISTER_ARRAY_WITH_RESET_FN(fwSpaConfig_t, PID_PROFILE_COUNT, fwSpaConfigs, PG_FW_SPA_CONFIG, 0);
+PG_REGISTER_ARRAY_WITH_RESET_FN(fwSpaConfig_t, PID_PROFILE_COUNT, fwSpaConfigs, PG_FW_SPA_CONFIG, 1);
 
 void resetFwSpaConfig(fwSpaConfig_t *config)
 {
