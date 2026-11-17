@@ -1,4 +1,19 @@
-# 0.0.43
+# 0.0.1
+
+First Gripora snapshot: the WingFlight firmware turned into an RC car controller. Not ready to drive yet; for bench testing and setting up with the Gripora Configurator (cfg.gripora.org).
+Throttle is signed around neutral (forward above, brake/reverse below) and every motor output defaults to a reversible ESC: neutral is the midpoint of the throttle range (1500us by default), never min_command. Arming needs the throttle at neutral; failsafe and receiver loss go to neutral.
+Only yaw is stabilised (gyro steering). The aircraft modes and features are removed: angle, trainer, attitude hold, GPS nav and rescue, auto trim, thrust vectoring, governor and tune advisor. PASSTHROUGH is now GYRO OFF.
+New car mixer preset: steering on S1 and the ESC on M1, with optional rear steering and a second ESC set up in the Configurator. Wiggle twitches the steering.
+New yaw_gyro_reverse setting for a gyro that corrects the wrong way, without changing the board orientation.
+See Changes.md for the removed settings and MSP messages.
+
+***
+
+# WingFlight history
+
+Releases of the WingFlight firmware that Gripora was forked from.
+
+## WingFlight 0.0.43
 
 Use with the 0.0.43 Configurator and Lua suites (MSP API 22.16, unchanged); the 0.0.42 ones work too, without servo names and F.Bus wiring detection.
 Add servo names: a short label (up to 8 characters) per servo, for reference only, set with `servo name` in the CLI or over MSP (MSP2_WING_SERVO_NAMES, MSP2_WING_SET_SERVO_NAME). They are kept in their own settings, so updating resets nothing.
@@ -10,7 +25,7 @@ Fix MSP_SET_MIXER_RULE reading a payload shorter than 15 bytes, and refresh the 
 Remove the unused multirotor GPS rescue controller and a GPS heading reset that had no effect. RTH and the GPS rescue failsafe still fly home through GPS navigation, and the gps_rescue_* settings are kept.
 Make SITL build on Linux, accept Rotorflight's FDM packet tail, keep its clock and loop rate steady on slow or bunching hosts, and survive a save interrupted by a kill.
 
-# 0.0.42
+## WingFlight 0.0.42
 
 Use the 0.0.42 Configurator and Lua suites with this firmware (MSP API 22.16); older ones do not work with it. Updating resets the servo settings, the mixer rules and the SRXL2 ESC settings to defaults, so save a backup first and set them up again afterwards. A backup made before 0.0.42 restores without its per-servo update rate, and mixer rules for servo 9 and above need recreating.
 Rework the servos into 24 servos that are each sent on PWM output N where the board has one and on channel N of a bus output (SBUS, F.Bus) when one is set up. The separate bus servo slots (S9 to S32) and bus_servo_clone_pwm are gone. Mixer outputs are S1 to S24 (1 to 24) and the motors stay at 27 to 30.
@@ -23,7 +38,7 @@ Fix the ready-to-arm wiggle not showing while MANUAL or PASSTHROUGH is selected.
 Fix the Tune Advisor mixing two tunes into one set of statistics when a profile switch, an adjustment or a save changes the tune during a flight.
 Fix a refused mixer config request over MSP changing part of the configuration before it was refused.
 
-# 0.0.41
+## WingFlight 0.0.41
 
 Use the 0.0.41 Configurator and Lua suites with this firmware (MSP API 22.15). Updating keeps your settings except the SRXL2 ESC settings (throttle rate and telemetry interval), which reset to defaults.
 Add dual-motor SRXL2 Smart ESC support: set srxl2esc_motor2_channel (SRXL2 Motor 2 Channel in the Configurator; 0 = off, 1 to 31) to the SRXL2 channel carrying motor 2, and mixer output M2 goes out on that channel. Takes effect after a reboot. New MSP messages carry the SRXL2 ESC settings for the Configurator and Lua suites.
@@ -32,12 +47,12 @@ Make an SRXL2 throttle rate set over MSP take effect: it now sets the motor PWM 
 Fix the FBUS master relay: a request the radio repeats is not sent to the device twice, a write for an App ID shared by several devices is not forwarded, a sensor silent for a second is no longer reported as current, a device with many App IDs stays reachable, and a forwarded slot set to the FC's own IDs cannot take over its telemetry or MSP replies.
 Fix ledstrip_flicker_rate = 100 dividing by zero, vary the telemetry interval jitter between boards and boots, and keep the CRSF and IBUS telemetry handlers speed-optimised.
 
-# 0.0.40
+## WingFlight 0.0.40
 
 Use the 0.0.40 Configurator and Lua suites with this firmware (MSP API 22.15). Updating keeps your settings.
 Measure the FBUS debug mode's poll intervals from when each frame arrives, and skip the first poll, so queued frames and the time since boot no longer skew them.
 
-# 0.0.39
+## WingFlight 0.0.39
 
 Use the 0.0.39 Configurator and Lua suites with this firmware (MSP API 22.15). Updating keeps your settings except motor, backup receiver and logic condition settings, which reset to defaults: check the motor protocol and throttle range, and set the backup receiver protocol again.
 Add a second backup receiver: assign a port the RX_BACKUP2 function (Receiver: Backup 2 in the Configurator) and set its protocol with rx_input_backup2_provider. Failover runs primary, then backup 1, then backup 2, and both backups may use the same protocol. Every configured backup must link before the first arm, and the radio's backup-lost alert fires when either is down. The backup status, config and wiring-detect MSP messages gain a second port (payload versions 4 and 2, and a port index).
@@ -62,7 +77,7 @@ Fix battery capacity counting above 215 A on FBUS and the ESC current offset aft
 Fix CRSF telemetry stopping with a zero link rate or ratio, MSP_MULTIPLE_MSP replies over 255 bytes, oversized MSPv2 frames, a corrupt Kontronik frame reading past memory, and servos freezing for 2 s after 71 minutes of flight.
 Reduce flash use on the 512 KB targets and keep the failsafe code out of ITCM.
 
-# 0.0.38
+## WingFlight 0.0.38
 
 The MSP API moves to 22.15 for the GPS feature removal. Updating keeps your settings. Use the 0.0.38 Configurator and Lua suites with this firmware.
 Add the FrSky Aegis Lite (STM32H730 firmware). A Wingflight loader replaces FrSky's ArduPilot boot loader and runs the firmware from the external flash; flash it from the Configurator. Erase chip wipes the whole external flash, config and blackbox included, so nothing of ArduPilot is left.
@@ -74,7 +89,7 @@ Add the serialdebug CLI command: every port with its pins, functions, open state
 Report decoded FBUS/S.Port sensor readings (GPS, current, cells, ESC/RPM, XACT servos) over MSP for the Configurator's FBUS Sensors tab.
 Add fbus_master_baud_fast (CLI, default on): off runs the F.Bus master port at 115200 instead of 460800, with the frame rate capped at 150 Hz.
 
-# 0.0.37
+## WingFlight 0.0.37
 
 The MSP API stays at 22.14. Updating keeps your settings, except the Thrust Vector profiles, which reset to the new defaults. Use the 0.0.37 Configurator and Lua suites with this firmware.
 Make Thrust Vector always available: the THRUST_VECTOR feature is gone, and the THRUST VECTOR mode alone turns the nozzle mix on. Blackbox logs the Thrust Vector terms when a mixer rule uses a Thrust Vector input.
@@ -84,7 +99,7 @@ Fix motor RPM from FBUS/S.Port ESC sensors reading 100 times too low, seen with 
 Fix long MSP replies overwriting memory when a radio read adjustment ranges, mixer rules or servo setups over telemetry. Every reply the radio suites read now fits, and a reply that still doesn't is answered with an error.
 Build the RF007 V3 FBUS mux bitstream for the 26 MHz oscillator every board carries (it was built for 25 MHz).
 
-# 0.0.36
+## WingFlight 0.0.36
 
 The MSP API stays at 22.14. Updating keeps your settings, except the Thrust Vector profiles, which reset to the new defaults. Use the 0.0.36 Configurator and Lua suites with this firmware.
 Retune the Thrust Vector defaults for a nozzle: P 150 on every axis, I 15, F 30, error limit 25, I-term decay 0.30 s with no linear cap, and hold gain 25.
@@ -93,7 +108,7 @@ Fix Thrust Vector saves from the Configurator and the Ethos suite being rejected
 Report the Thrust Vector loop's live gains over MSP (MSP2_WING_TV_EFFECTIVE_PID_GAINS), and log master gain, the gain curves and the Thrust Vector tune in the Blackbox header.
 Keep each servo's Rate as set when servos share a hardware timer. They still run at the lowest rate among them, but changing one no longer overwrites the others after a reboot. MSP2_WING_SERVO_TIMING reports the rate each servo runs at and which servos share a timer.
 
-# 0.0.35
+## WingFlight 0.0.35
 
 The MSP API stays at 22.14. Updating keeps your settings. Use the 0.0.35 Configurator and Lua suites with this firmware.
 Add the STM32F7X2M firmware for boards with an FPGA FBUS mux, such as the FrSky Vantac RF007 V3: S1, S2, S3, TAIL and ESC can each carry PWM, the FBUS master line or a bidirectional DShot bridge. The Configurator picks this build from the target config. STM32F7X2 is unchanged.
@@ -103,7 +118,7 @@ Reject malformed fpga CLI subcommands instead of reading a missing word as 0.
 Default the battery and current meters to ESC on a new or reset config. Existing configs keep their meter settings.
 Keep the Blackbox logging bit in SYSTEM_STATUS set through the grace period after disarm, while the log is still being written.
 
-# 0.0.34
+## WingFlight 0.0.34
 
 The MSP API stays at 22.14. Updating keeps your settings; the new saved servo trims start at 0. Use the 0.0.34 Configurator and Lua suites with this firmware.
 Keep servo trims apart from the servo center. Stepped Servo Trim adjustments and AUTO TRIM now write a saved per-servo trim, added at the output, instead of rewriting the center, so the center and the min/max end stops set on the bench stay put. Saved and pot trim together are limited to 20% of the servo's scale, and the output stays inside min/max. Trims that older firmware wrote into a center stay there.
@@ -111,21 +126,21 @@ Make a stepped servo trim give exactly one step per press of its switch. Holding
 Trim bus (SBUS/F.Bus) servos too. A bus channel cloned from its PWM servo carries that servo's trim.
 Add the saved servo trims to MSP and the CLI: MSP_SERVO_TRIM appends them after the live trims, MSP2_WING_SET_SERVO_TRIM sets one, and `servo trim` lists them (`servo trim <servo> <us>` sets one). diff and dump include them.
 
-# 0.0.33
+## WingFlight 0.0.33
 
 Change the MSP API to 22.14. Updating keeps your settings. Use the 0.0.33 Configurator and Lua suites with this firmware.
 Add timed bench overrides for setup tools: forced flight modes, a servo probe for finding end stops without widening the stored limits, and timeouts on servo and mixer overrides. They live in RAM only and lapse when the setup tool stops refreshing them, so a dropped link, a later save or an accelerometer calibration can no longer store temporary setup state. While one is active, arming is blocked and telemetry shows SETUP.
 Name the raw-stick mode PASSTHROUGH again and GYRO OFF MANUAL, in mode names and CRSF flight-mode text. Switch assignments are unchanged. The OVERRIDE arming-disabled reason is now named SETUP.
 Fix PASSTHROUGH and MANUAL overriding the bench mixer overrides: while disarmed, an axis held by a setup tool now keeps its override, so the Configurator wizard's direction check moves the surfaces with either switch on. Armed behaviour is unchanged.
 
-# 0.0.32
+## WingFlight 0.0.32
 
 The MSP API stays at 22.13. Updating resets every PID profile, thrust-vector profile and rate profile to defaults (their defaults changed), so note your tune and rates before flashing and re-enter them afterwards. Use the 0.0.32 Configurator and Lua suites with this firmware.
 Lower the default gains on every axis, in the PID and thrust-vector profiles: roll and pitch P 105, I 45; yaw P 190, I 45; F 65 (was 75). The 0.0.31 defaults were flown at about 80% master gain, and with F 75 the aircraft outran the stick and the surfaces ran to their ends before full stick.
 Lower the default pitch rate from 250 to 200 deg/s and yaw from 350 to 150 deg/s, rates the airframe can actually reach. Roll stays at 250 deg/s.
 Add Tune Advisor statistics: in plain rate flight the FC measures how the model follows the sticks on each axis (feed-forward match, full-stick saturation, bounce-back after a stick release), so the Lua suites' Tune Advisor page can suggest changes. Statistics build up across flights and clear when the tune changes.
 
-# 0.0.31
+## WingFlight 0.0.31
 
 The MSP API stays at 22.13. Updating resets every PID profile and thrust-vector profile, the snap relax settings and the GPS nav settings to defaults (their defaults changed), so note your tune before flashing and re-enter it afterwards. Use the 0.0.31 Configurator and Lua suites with this firmware.
 Raise the default P and I gains on every axis, in the PID and thrust-vector profiles: roll and pitch P 150, I 75; yaw P 310, I 75. Blackbox logs showed the old defaults (P 50, I 16) barely moved the surfaces.
@@ -138,7 +153,7 @@ Raise the default snap relax hold from 150 to 350 ms, so stability comes back mo
 Soften GPS nav turns onto track: default nav_bearing_kp 120 (was 200), and nav_throttle 65% (was 60%).
 Fix XACT servo writes using a stale or incomplete parameter cache after a rescan.
 
-# 0.0.30
+## WingFlight 0.0.30
 
 Change the MSP API to 22.13. Updating resets every PID profile and thrust-vector profile to defaults (the default F and B changed), so note your tune before flashing and re-enter it afterwards. Use the 0.0.30 Configurator and Lua suites with this firmware.
 Add Snap Relax: when roll, pitch and yaw are slammed in together (a pop top, pinwheel or snap), roll and pitch feedback stops fighting the rotation, then fades back in as the sticks come out. Set per profile with snap_relax_strength (default 100, 0 = off), snap_relax_threshold, snap_relax_window and snap_relax_hold. Blackbox logs a snap_relax header and a SNAP_RELAX debug mode.
@@ -151,7 +166,7 @@ Remove the AUTO HOVER, HORIZON, PARALYZE, STICK COMMANDS DISABLE, ALTHOLD and CA
 Keep servo min/max as set and limit the travel against the center only at the output, so moving the center back gives the travel back. The CLI servo command warns when the center limits it.
 Fix MSP over telemetry losing every reply after a request arrived while a long reply was still being sent.
 
-# 0.0.29
+## WingFlight 0.0.29
 
 Change the MSP API to 22.10. Updating resets every PID profile and thrust-vector profile to defaults (the stored I-term decay and relax values changed meaning), so note your tune before flashing and re-enter it afterwards. Use the 0.0.29 Configurator and Lua suites with this firmware.
 Add GPS speed attenuation (SPA) beside TPA: P and D scale with GPS speed, multiplied with the throttle-based TPA, so a tune that is right at cruise does not oscillate in a fast dive with the throttle closed. Set per profile with fw_spa_gain, fw_spa_curve (a slot of the shared gain-curve pool) and fw_spa_speed_max, on GPS builds. After a fix loss it holds the last scale for 3 s, then eases back to 100%. Blackbox logs an fw_spa header and a GAIN_ATTEN debug mode.
@@ -169,7 +184,7 @@ Block XACT servo scans and parameter writes while armed, and fix XACT saves of a
 Stop a GPS port with no module answering from reinitialising the UART endlessly (retry every 30 s after 10 failed cycles), and harden the F7/H7/G4 UART reconfigure path against the in-flight freezes seen in Betaflight.
 Rename 21 debug modes that no longer log anything to UNUSED_<slot>, without renumbering.
 
-# 0.0.28
+## WingFlight 0.0.28
 
 Add two packed status telemetry sensors over CRSF and S.Port/FPort/FPort2: SYSTEM_STATUS (120) with armed/airborne state, main and backup RX link, failsafe phase, GPS fix and health, LOITER/RTH blocked, battery state, control saturation, gyro overflow, autotrim and Blackbox state; and SYSTEM_CONFIG (121) with the PID/rates/battery/TV profile numbers, unsaved settings, reboot required and sensors present. The 0.0.28 Lua suites read their FC status from them. This is a hard cut: the arming flags (90), PID/rates/battery/LED profile (95-98), TV profile (118) and GPS fix type (119) sensors are removed, and FLIGHT_MODE (89) no longer carries the GPS-unavailable bit 15 (now NAV_BLOCKED in SYSTEM_STATUS). Jeti EX Bus is unchanged. Use the 0.0.28 Configurator and Lua suites with this firmware.
 IMPORTANT: updating keeps your saved telemetry_sensors list, which does not include the new sensors 120/121 that the Lua suites now need. After flashing, run this in the CLI and save (or press Default on the Ethos suite's Telemetry page, or select the sensors in the Configurator):
@@ -186,14 +201,14 @@ Fix bus servos with a speed limit moving far slower than configured (about 20x a
 Read the satellite count from FBUS GPS sensors that send it. Older FBUS GPS sensors report 0 satellites so they no longer pass the RTH/Loiter/GPS Rescue minimum-satellite checks; the CLI-only gps_fbus_assumed_sats sets an assumed count for them.
 Stop compiling in the parallel PWM receiver. Configs with it enabled have it cleared at boot.
 
-# 0.0.27
+## WingFlight 0.0.27
 
 Split the shared roll/pitch stick deadband into separate roll and pitch deadbands (CLI roll_deadband, pitch_deadband, yaw_deadband). This is a breaking MSP_RC_CONFIG/MSP_SET_RC_CONFIG layout change with no compatibility path, and the MSP API version stays 22.4, so an older client still connects but reads and writes the wrong deadband fields: use the 0.0.27 Configurator and Lua suites with this firmware. Updating resets the RC controls settings (stick center, deflection, throttle range, deadbands, smoothing) to defaults, so re-check them after flashing. The blackbox header's deadband is replaced by roll_deadband and pitch_deadband.
 Report GPS Loiter/RTH as unavailable in flight-mode telemetry when its switch is on but the mode can't fly (disarmed, no accelerometer, no healthy fix, or no home for RTH), so the radio can announce it. Flight behaviour is unchanged.
 Stop compiling in the GHOST and CPPM receivers and the FrSky Hub, MAVLink and LTM telemetry protocols. Feature and serial-function IDs are unchanged.
 Add a simulated barometer and blackbox logging to onboard flash in SITL, and fix the SITL build.
 
-# 0.0.26
+## WingFlight 0.0.26
 
 Rework GPS Loiter/RTH after a flight log showed oversized full-bank orbits and a steady descent. Fix the altitude gain being applied 10x too weak: nav_altitude_kp now gives the documented degrees of pitch per meter (divide it by 10 if you raised it to compensate). Add climb-rate damping (nav_altitude_kd), steer smoothly onto the loiter circle with a speed-based bank feedforward and a 45°/s bank slew limit, and feed rudder into nav turns instead of holding it against them (nav_turn_coordination). Default nav_loiter_radius is now 100 m; existing configs keep their value.
 Add nav_throttle (default 60%): GPS Loiter, GPS RTH and the failsafe GPS Rescue fly at it once airborne, instead of wherever the throttle stick was. failsafe_throttle now applies only to failsafe landing. Block arming while the GPS Loiter switch is on. The new settings are appended to MSP2_WING_GPS_NAV_CONFIG; edit them with the 0.0.26 Configurator or Lua suite.
@@ -213,7 +228,7 @@ Rename the Governor Headspeed adjustment function to Governor RPM.
 Reduce SmartPort and CRSF telemetry memory usage.
 Guard the mixer and servo output paths against NaN/Inf reaching the hardware, including flooring rc.range to a minimum of 1 so an unchecked MSP_SET_RC_CONFIG deadband/deflection can no longer divide by zero.
 
-# 0.0.25
+## WingFlight 0.0.25
 
 Change the MSP API to 22.3, stripping the always-zero heli placeholder bytes from eight MSP messages (MSP_RC_TUNING, MSP_PID_PROFILE, MSP_PID_TUNING, MSP_SETPOINT, MSP_TELEMETRY_CONFIG, MSP_ESC_SENSOR_CONFIG, MSP_RC_CONFIG, MSP_SENSOR_CONFIG). This is a breaking layout change: use the 0.0.25 Configurator and Lua suites with this firmware.
 Add CRSF Sensors support: decode third-party CRSF GPS, battery, barometer, cells and RPM telemetry, with a battery source select and a diagnostic MSP status command.
@@ -229,7 +244,7 @@ Use integer maths for ADC current capacity accumulation, saving about 2.6 KB of 
 Remove the VTX, camera control and rangefinder code, none of which was built into any target. MSP_SONAR_ALTITUDE is now unsupported; wire IDs stay reserved.
 Move the remaining user and developer documentation to wingflight-docs, leaving only design notes in the firmware repo.
 
-# 0.0.24
+## WingFlight 0.0.24
 
 Make continuous (pot/channel-mapped) SERVO_TRIM_* adjustments runtime-only: they no longer rewrite and save the servo center, so a trim can't re-apply itself on top of its own saved result after a reboot or leave a wrong center behind.
 Add MSP_SERVO_TRIM (command 233) to report the live runtime servo trim per servo. The MSP API version stays at 22.2.
@@ -240,7 +255,7 @@ Let ATT HOLD re-center when nothing is happening: I-term bleeds slowly on a hold
 Apply the same settle-then-capture and per-axis I-term decay to AUTOHOVER roll, fixing its release snap-back.
 Run the Thrust Vector hold on the same shared hold engine as ATT HOLD, picking up all of its fixes (per-axis tracking, reduced ground authority, clamped deadband, settle-then-capture, stall timeout), and drop its engaged state while a safety mode has priority.
 
-# 0.0.23
+## WingFlight 0.0.23
 
 Add optional throttle assist to AUTOHOVER for underthrottled hover, ramping throttle when pitch correction stays pinned at max rate.
 Add per-servo balance curve for matching multi-servo control surfaces (e.g. dual ailerons).
@@ -253,7 +268,7 @@ Fix MANUAL mode's throw being scaled against the rate profile's maximum ceiling 
 Fix blackbox mass-storage log filenames still using the legacy "rtfl" prefix.
 Remove legacy Matek/Nucleo board targets (superseded by unified STM32 targets).
 
-# 0.0.22
+## WingFlight 0.0.22
 
 Add a descriptive role tag to mixer rules, with per-role adjustment functions (ADJUSTMENT_FLAP_COMPENSATION_GAIN, ADJUSTMENT_DIFF_THRUST_YAW_GAIN) and fixes for role-adjusted rules losing their Reverse flag.
 Add TRADITIONAL flight mode: stabilized with I-term forced to zero.
@@ -261,26 +276,26 @@ Block first arm until a configured backup RX has linked.
 Hold Auto Hover's roll axis against disturbance drift (e.g. torque roll) once the stick centers, instead of leaving it a bare pass-through the whole time.
 Change default servo refresh rate to a safe 50Hz.
 
-# 0.0.21
+## WingFlight 0.0.21
 
 Tag CLI errors raised while replaying a target's embedded custom-defaults blob (e.g. on `defaults`/`defaults nosave`) with "(custom defaults)", so they're no longer indistinguishable from an error in whatever command the user actually typed.
 
-# 0.0.20
+## WingFlight 0.0.20
 
 Fix MANUAL mode losing its rates/expo shaping on fast stick moves and ignoring the configured rate profile's authority, both of which pushed it toward full-deflection passthrough.
 
-# 0.0.19
+## WingFlight 0.0.19
 
 Add RX and ESC telemetry serial wiring auto-detect trial modes to help diagnose signal-inversion and pin-swap mismatches.
 Fix RX/TX invert and pin-swap settings sticking across UART reopens.
 Fix Spektrum satellite bind pin selection to honor serial pin-swap.
 
-# 0.0.18
+## WingFlight 0.0.18
 
 Add Thrust Vector profiles (6 independently-switchable profiles).
 Generalize the backup RX from SBUS-only into a provider-selectable input, adding FBUS, FPort, FPort2, Jeti EX Bus, and CRSF support alongside SBUS.
 
-# 0.0.17
+## WingFlight 0.0.17
 
 Add Thrust Vector Attitude Hold.
 Add SBUS-In Fallback Receiver (Serial Rx (Backup, SBUS)).
@@ -288,7 +303,7 @@ Fix servo-center snap when continuously slewing a SERVO_TRIM_* adjustment.
 Add bus servo PWM-clone mode (`bus_servo_clone_pwm`, default ON) so bus servo channels mirror the matching PWM output without separate mixer rules.
 Fix an init glitch on the Spektrum satellite receiver bind pin.
 
-# 0.0.16
+## WingFlight 0.0.16
 
 Add XACT servo programming support: multi-servo discovery over FBUS, per-servo background reads, and a field set aligned to FrSky's own configuration tool.
 Fix XACT parameter reads hanging forever on a field an unsupported servo doesn't answer.
@@ -297,28 +312,28 @@ Fix XACT servo tracking losing a servo after its Physical ID is renamed.
 Fix SRXL2 telemetry seqlock read.
 Make the governor/idle-up switch a hard motor interlock when a governor mode is configured, instead of only refining the bottom of the throttle curve.
 
-# 0.0.15
+## WingFlight 0.0.15
 
 Add support for Spektrum SRXL2 ESC (throttle and telemetry over a single bidirectional bus).
 Support Spektrum full-size receivers (e.g. AR6610T) by sending an early SRXL2 handshake at boot.
 
-# 0.0.14
+## WingFlight 0.0.14
 
 Add debounce for servo trim adjustments to prevent snapping on RX link reacquisition.
 
-# 0.0.13
+## WingFlight 0.0.13
 
 Fix servo trim ignoring mixer-rule-based servo reversal, causing mirrored servos (e.g. dual ailerons) to trim the same direction.
 Fix servo trim also ignoring a negative (Inverted) rate on the driving mixer input, causing trim to apply backwards on models using axis invert.
 
-# 0.0.12
+## WingFlight 0.0.12
 
 Fix BOXTHRUSTVECTOR/BOXLOITER permanentId collision.
 Fix governor bypassing RX-loss failsafe throttle cut.
 Clamp m/3s telemetry to 0 when out of range.
 Update current sensor FBUS refresh to accept timestamp and adjust capacity calculation.
 
-# 0.0.11
+## WingFlight 0.0.11
 
 Add basic GPS Loiter and RTH flight modes.
 Add Thrust Vector PID control and blackbox logging.
@@ -329,12 +344,12 @@ Use governor idle throttle as the RPM idle-hold floor to avoid ESC cut on rapid 
 Fix blackbox MSC mass storage startup.
 Remove OSD and CMS.
 
-# 0.0.10
+## WingFlight 0.0.10
 
 Remove legacy heli tail_rotor_mode; rename main/tail naming to motor1/motor2 throughout (gear ratios, RPM/speed accessors, telemetry sensor IDs, blackbox log fields).
 Add descriptive model_type field to mixer config.
 
-# 0.0.9
+## WingFlight 0.0.9
 
 Add servo trim adjustments for roll/pitch/yaw, with resync/commit support.
 Add governor RPM max limiter.
@@ -345,15 +360,15 @@ Fix S.Port master detection when checking forwarded FBUS sensor telemetry.
 Fix mixer/gain curve point count validation from MSP.
 Widen master_gain range for finer PID gain resolution.
 
-# 0.0.8
+## WingFlight 0.0.8
 
 Rework fixed-wing throttle attenuation (TPA) to use the shared gain-curve pool instead of a fixed linear ramp.
 
-# 0.0.7
+## WingFlight 0.0.7
 
 Fix stabilization break when mounting-surface trim is set without board alignment.
 
-# 0.0.6
+## WingFlight 0.0.6
 
 Add Mounting-surface trim (manual entry and auto-detect wizard).
 Add throttle range governor.
@@ -363,12 +378,12 @@ Rework ATTHOLD mode with a new implementation.
 Fix Board Auto-Align sign-blind scoring; gate on accelerometer calibration.
 Reduce gyro calibration sensitivity to cope with windy days.
 
-# 0.0.5
+## WingFlight 0.0.5
 
 Add AUTO TRIM flight mode (servo-center capture, ported from iNav's BOXAUTOTRIM).
 Fix auto-hover fighting aileron input, allowing free rotation in hover.
 
-# 0.0.4
+## WingFlight 0.0.4
 
 Fix missing channel slot handling.
 Fix pitch-up direction when enabling auto-hover.
@@ -378,14 +393,14 @@ Add cross-axis relax behavior.
 Remove atthold mode.
 Update default servo rate.
 
-# 0.0.3
+## WingFlight 0.0.3
 
 ESC Programing
 Improve telemetry conditions
 IdleUP governor
 Added fixed-wing cross-axis relax tuning for rudder-to-roll coupling in normal stabilization.
 
-# 0.0.2
+## WingFlight 0.0.2
 
 Board Alignment
 Remove collective from channel maps
@@ -393,7 +408,7 @@ Added in ability to set master gains for RPY via msp and adjustment functions
 New flight mode sensor
 Reset mixer rules so stale saved throttle mixes are rebuilt with M1 as the default motor output.
 
-# 0.0.1
+## WingFlight 0.0.1
 
 This is the first _development snapshot_ of the Wingflight firmware.
 
