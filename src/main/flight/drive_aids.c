@@ -38,10 +38,16 @@
 // reverses on the next pull, so the released brake never drops below DRIVE_ABS_MIN_BRAKE: the
 // command stays on the brake side of neutral, and the drive state stays BRAKE with it.
 //
+// Traction control (RAMP): forward throttle may only rise at a limited rate, zero to full in
+// tc_ramp_time; letting off is instant. It shapes only a forward command, never a brake (a
+// command above neutral while the ESC brakes a car rolling backwards) or reverse. While traction
+// control or the aids are off, the limit follows the command, so turning it on with the trigger
+// held never cuts the throttle.
+//
 // The settings are per PID profile (the current one is used).
 //
-// The pulse timing uses the pilot's inputs and time only. Sensor-based ABS (wheel slip from the
-// motor RPM) will be a separate mode.
+// Both use the pilot's inputs and time only. Sensor-based modes (wheel slip from the motor RPM
+// against the accelerometer) will be separate modes.
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -72,6 +78,7 @@ typedef struct {
     uint8_t flags;
 
     float absPhase;             // Seconds into the current ABS cycle
+    float tcLimit;              // Forward throttle traction control allows now, 0..1
 } driveAidsState_t;
 
 static FAST_DATA_ZERO_INIT driveAidsState_t aids;
@@ -79,7 +86,33 @@ static FAST_DATA_ZERO_INIT driveAidsState_t aids;
 void driveAidsReset(void)
 {
     aids.absPhase = 0;
+    aids.tcLimit = 0;
     aids.flags = 0;
+}
+
+// Traction control on a forward command (0..1). Returns the command to send.
+static float driveTcApply(float forward, bool braking, float dT)
+{
+    const driveAidsConfig_t *config = driveAidsConfigs(getCurrentPidProfileIndex());
+
+    if (config->tc_mode == DRIVE_TC_OFF || braking) {
+        aids.tcLimit = forward;
+        return forward;
+    }
+
+    aids.flags |= DRIVE_AIDS_FLAG_TC_ARMED;
+
+    const float rampTime = MAX(config->tc_ramp_time, DRIVE_TC_RAMP_TIME_MIN) * 0.001f;
+    const float out = fminf(forward, aids.tcLimit + dT / rampTime);
+
+    aids.tcLimit = out;
+
+    if (out < forward)
+        aids.flags |= DRIVE_AIDS_FLAG_TC_ACTIVE;
+
+    DEBUG(DRIVE_AIDS, 3, lrintf(out * 1000));
+
+    return out;
 }
 
 // The brake the release part of an ABS pulse keeps: floor share of the brake, but never so
@@ -161,6 +194,7 @@ float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking
 
     if (!enabled) {
         driveAidsReset();
+        aids.tcLimit = fmaxf(throttle, 0);
     }
     else {
         aids.flags |= DRIVE_AIDS_FLAG_ENABLED;
@@ -168,9 +202,11 @@ float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking
         // Brake is below neutral. Above it ABS has nothing to do, and its cycle restarts.
         if (throttle < 0) {
             out = -driveAbsApply(-throttle, steer, braking, dT);
+            aids.tcLimit = 0;
         }
         else {
             aids.absPhase = 0;
+            out = driveTcApply(throttle, braking, dT);
         }
     }
 

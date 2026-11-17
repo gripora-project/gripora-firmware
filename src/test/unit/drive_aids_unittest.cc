@@ -263,6 +263,86 @@ TEST_F(DriveAidsTest, SettingsArePerProfile)
     EXPECT_NEAR(-0.4f, maxOut, 1e-5f);
 }
 
+// Traction control
+
+TEST_F(DriveAidsTest, TractionControlOffByDefault)
+{
+    EXPECT_EQ(DRIVE_TC_OFF, config->tc_mode);
+
+    run(1.0f, 0.01f, 0, false);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_TC_ARMED);
+}
+
+TEST_F(DriveAidsTest, TractionControlLimitsTheRise)
+{
+    config->tc_mode = DRIVE_TC_RAMP;
+    config->tc_ramp_time = 500;
+
+    // A slam to full: half way after 250 ms, full after 500 ms
+    run(1.0f, 0.25f, 0, false);
+    EXPECT_NEAR(0.5f, maxOut, 0.005f);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_TC_ARMED);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_TC_ACTIVE);
+
+    run(1.0f, 0.26f, 0, false);
+    EXPECT_FLOAT_EQ(1.0f, maxOut);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_TC_ACTIVE);
+
+    // A small command below the limit passes at once
+    run(0.3f, 0.01f, 0, false);
+    EXPECT_FLOAT_EQ(0.3f, minOut);
+}
+
+TEST_F(DriveAidsTest, TractionControlLetsOffAtOnce)
+{
+    config->tc_mode = DRIVE_TC_RAMP;
+    config->tc_ramp_time = 500;
+
+    run(1.0f, 1.0f, 0, false);
+
+    // Off the throttle: instant. Back on: rises again from where it was let off to.
+    run(0.2f, 0.001f, 0, false);
+    EXPECT_FLOAT_EQ(0.2f, maxOut);
+
+    run(1.0f, 0.1f, 0, false);
+    EXPECT_NEAR(0.4f, maxOut, 0.005f);
+}
+
+TEST_F(DriveAidsTest, TractionControlStartsFromZeroAfterABrake)
+{
+    config->tc_mode = DRIVE_TC_RAMP;
+    config->tc_ramp_time = 500;
+
+    run(1.0f, 1.0f, 0, false);
+    run(-0.5f, 0.1f, 0, true);
+
+    run(1.0f, 0.1f, 0, false);
+    EXPECT_NEAR(0.2f, maxOut, 0.005f);
+}
+
+TEST_F(DriveAidsTest, TractionControlLeavesABrakeFromReverseAlone)
+{
+    // Above neutral while the ESC brakes a car rolling backwards
+    config->tc_mode = DRIVE_TC_RAMP;
+    config->tc_ramp_time = 500;
+
+    run(1.0f, 0.1f, 0, true);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_TC_ARMED);
+}
+
+TEST_F(DriveAidsTest, TurningAidsOnWithTheTriggerHeldDoesNotCut)
+{
+    config->tc_mode = DRIVE_TC_RAMP;
+    config->tc_ramp_time = 500;
+
+    // DRIVE AIDS OFF at full throttle, then switched back on
+    run(1.0f, 0.5f, 0, false, false);
+    run(1.0f, 0.01f, 0, false, true);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+}
+
 TEST_F(DriveAidsTest, ConfigIsValidated)
 {
     config->abs_mode = 7;
@@ -270,10 +350,14 @@ TEST_F(DriveAidsTest, ConfigIsValidated)
     config->abs_trigger = 0;
     config->abs_floor = 200;
     config->abs_corner_freq = 50;
+    config->tc_mode = 9;
+    config->tc_ramp_time = 5;
     driveAidsConfigsMutable(PID_PROFILE_COUNT - 1)->abs_freq = 99;
     validateAndFixDriveAidsConfig();
 
     EXPECT_EQ(DRIVE_ABS_FREQ_MAX, driveAidsConfigs(PID_PROFILE_COUNT - 1)->abs_freq);
+    EXPECT_EQ(DRIVE_TC_OFF, config->tc_mode);
+    EXPECT_EQ(DRIVE_TC_RAMP_TIME_MIN, config->tc_ramp_time);
 
     EXPECT_EQ(DRIVE_ABS_OFF, config->abs_mode);
     EXPECT_EQ(DRIVE_ABS_FREQ_MIN, config->abs_freq);

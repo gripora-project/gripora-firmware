@@ -392,10 +392,12 @@
 // Drive aids (pg/drive_aids.h, flight/drive_aids.c). MSP2_GRIPORA_DRIVE_AIDS_CONFIG reply and
 // MSP2_GRIPORA_SET_DRIVE_AIDS_CONFIG request, for the current PID profile, all U8: abs mode (driveAbsMode_e), abs freq Hz,
 // abs floor %, abs hold ms, abs trigger %, abs dyn freq Hz, abs dyn hold ms (0 off), abs corner
-// freq Hz (0 off), abs corner hold ms (0 off). Later aids append their fields; SET needs at
-// least these 9 bytes, refuses the whole request on any out-of-range value and leaves fields
-// it was not sent unchanged. MSP2_GRIPORA_DRIVE_AIDS_STATUS reply: U8 flags (bit 0 aids on,
-// bit 1 ABS armed, bit 2 ABS releasing), S16 throttle command in and S16 command out (x1000).
+// freq Hz (0 off), abs corner hold ms (0 off); then U8 tc mode (driveTcMode_e) and U16 tc ramp
+// time ms. Later aids append their fields; SET needs at least the 9 ABS bytes, takes a later
+// aid's fields only when all of them are sent, refuses the whole request on any out-of-range
+// value and leaves fields it was not sent unchanged. MSP2_GRIPORA_DRIVE_AIDS_STATUS reply: U8
+// flags (bit 0 aids on, bit 1 ABS armed, bit 2 ABS releasing, bit 3 TC armed, bit 4 TC holding
+// the throttle back), S16 throttle command in and S16 command out (x1000).
 #define MSP2_GRIPORA_DRIVE_AIDS_CONFIG        0x5F3F
 #define MSP2_GRIPORA_SET_DRIVE_AIDS_CONFIG    0x5F40
 #define MSP2_GRIPORA_DRIVE_AIDS_STATUS        0x5F41

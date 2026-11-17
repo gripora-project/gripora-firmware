@@ -38,6 +38,8 @@
 #define DRIVE_AIDS_FLAG_ENABLED     (1 << 0)    // Aids on: armed, no failsafe, DRIVE AIDS OFF not active
 #define DRIVE_AIDS_FLAG_ABS_ARMED   (1 << 1)    // ABS set up and braking past the trigger
 #define DRIVE_AIDS_FLAG_ABS_ACTIVE  (1 << 2)    // ABS releasing the brake right now
+#define DRIVE_AIDS_FLAG_TC_ARMED    (1 << 3)    // Traction control set up and driving forward
+#define DRIVE_AIDS_FLAG_TC_ACTIVE   (1 << 4)    // Traction control holding the throttle back right now
 
 void driveAidsReset(void);
 
@@ -45,7 +47,8 @@ void driveAidsReset(void);
 // the command to send on. driveAidsApply() reads the arming state, the DRIVE AIDS OFF mode, the
 // steering and the drive state itself; driveAidsApplyFrom() takes them so the logic can be unit
 // tested. steer is the steering deflection, -1..1; braking is true while the ESC brakes a car
-// that is still rolling (flight/drive.c).
+// that is still rolling (flight/drive.c); above neutral that is a brake from reverse, which
+// traction control leaves alone.
 float driveAidsApply(float throttle, float dT);
 float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking, float dT);
 

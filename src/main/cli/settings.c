@@ -463,6 +463,10 @@ static const char * const lookupTableDriveAbsMode[] = {
     "OFF", "STATIC", "DYNAMIC",
 };
 
+static const char * const lookupTableDriveTcMode[] = {
+    "OFF", "RAMP",
+};
+
 #ifdef USE_SMARTFUEL
 static const char * const lookupTableSmartFuelMode[] = {
     "OFF", "VOLTAGE", "CURRENT", "COMBINED",
@@ -568,6 +572,7 @@ const lookupTableEntry_t lookupTables[] = {
     LOOKUP_TABLE_ENTRY(lookupTableParamType),
     LOOKUP_TABLE_ENTRY(lookupTableDriveEscMode),
     LOOKUP_TABLE_ENTRY(lookupTableDriveAbsMode),
+    LOOKUP_TABLE_ENTRY(lookupTableDriveTcMode),
 #ifdef USE_SMARTFUEL
     LOOKUP_TABLE_ENTRY(lookupTableSmartFuelMode),
 #endif
@@ -984,6 +989,8 @@ const clivalue_t valueTable[] = {
     { "drive_abs_dyn_hold",          VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_HOLD_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_dyn_hold) },
     { "drive_abs_corner_freq",       VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_CORNER_FREQ_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_corner_freq) },
     { "drive_abs_corner_hold",       VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIVE_ABS_HOLD_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, abs_corner_hold) },
+    { "drive_tc_mode",               VAR_UINT8  | PROFILE_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_DRIVE_TC_MODE }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, tc_mode) },
+    { "drive_tc_ramp_time",          VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { DRIVE_TC_RAMP_TIME_MIN, DRIVE_TC_RAMP_TIME_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, tc_ramp_time) },
 
 // PG_PID_PROFILE
 #ifdef USE_PROFILE_NAMES

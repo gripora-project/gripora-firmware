@@ -18,6 +18,29 @@ curve, defaults to 60 km/h (was 150) and ranges 10..300 km/h (was 10..600).
 The SPA PG is reset on upgrade (v1), so `fw_spa_gain`, `fw_spa_curve` and
 `fw_spa_speed_max` return to their defaults in every profile.
 
+## Drive aids: traction control (timed)
+
+Traction control joins ABS in the drive aids (`src/main/flight/drive_aids.c`).
+
+- `drive_tc_mode` `RAMP`: forward throttle may only rise at a limited rate,
+  zero to full in `drive_tc_ramp_time` (500 ms, 50..2000); letting off is
+  instant. It never touches a brake (also not a brake from reverse) or
+  reverse. After a brake or a let-off it rises again from where the throttle
+  is. Turning it on, or the aids back on, with the trigger held never cuts the
+  throttle. It uses the stick and time only, no sensors. OFF by default.
+- Per PID profile, in `PG_DRIVE_AIDS_CONFIG`, now v1 (reset on upgrade).
+- New Blackbox header `drive_tc` (mode, ramp time). Debug `DRIVE_AIDS`
+  slot 3 shows the throttle traction control allows (x1000) while driving
+  forward with it on, the ABS rate while braking.
+
+MSP, upcoming API version:
+
+- `MSP2_GRIPORA_DRIVE_AIDS_CONFIG` reply appends `U8` tc mode (0 OFF,
+  1 RAMP) and `U16` tc ramp time (ms): 12 bytes. `SET` takes them when the
+  request is at least 12 bytes; a 9-byte request leaves them unchanged.
+- `MSP2_GRIPORA_DRIVE_AIDS_STATUS` flags: bit 3 TC armed, bit 4 TC holding
+  the throttle back.
+
 ## Drive aids: ABS (timed)
 
 A new stage shapes the pilot's throttle/brake command before it reaches the

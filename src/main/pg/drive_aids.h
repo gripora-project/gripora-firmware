@@ -23,8 +23,8 @@
 #include "pg/pg.h"
 #include "pg/pid.h"
 
-// Drive aids (flight/drive_aids.c): ABS first; traction control and speed-based steering
-// will follow in this group. One set per PID profile, so a profile switch changes the aids
+// Drive aids (flight/drive_aids.c): ABS and traction control; speed-based steering will
+// follow in this group. One set per PID profile, so a profile switch changes the aids
 // with the tune (a track or surface preset).
 
 typedef enum {
@@ -42,6 +42,15 @@ typedef enum {
 #define DRIVE_ABS_TRIGGER_MAX           100     // %
 #define DRIVE_ABS_CORNER_FREQ_MAX       10      // Hz added at full lock
 
+typedef enum {
+    DRIVE_TC_OFF = 0,
+    DRIVE_TC_RAMP,          // Forward throttle rises no faster than zero to full in tc_ramp_time
+    DRIVE_TC_MODE_COUNT
+} driveTcMode_e;
+
+#define DRIVE_TC_RAMP_TIME_MIN          50      // ms, zero to full throttle
+#define DRIVE_TC_RAMP_TIME_MAX          2000    // ms
+
 typedef struct driveAidsConfig_s {
     uint8_t  abs_mode;              // driveAbsMode_e
     uint8_t  abs_freq;              // Pulse rate, Hz
@@ -52,6 +61,8 @@ typedef struct driveAidsConfig_s {
     uint8_t  abs_dyn_hold;          // DYNAMIC: hold at full brake, ms (0 = off, the hold stays abs_hold)
     uint8_t  abs_corner_freq;       // Pulse rate added at full steering lock, Hz (0 = off)
     uint8_t  abs_corner_hold;       // Hold at full steering lock, ms (0 = off)
+    uint8_t  tc_mode;               // driveTcMode_e
+    uint16_t tc_ramp_time;          // RAMP: zero to full forward throttle, ms
 } driveAidsConfig_t;
 
 PG_DECLARE_ARRAY(driveAidsConfig_t, PID_PROFILE_COUNT, driveAidsConfigs);

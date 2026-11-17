@@ -1269,6 +1269,8 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_dyn_hold);
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_freq);
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_hold);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->tc_mode);
+        sbufWriteU16(dst, driveAidsConfigs(getCurrentPidProfileIndex())->tc_ramp_time);
         break;
 
     case MSP2_GRIPORA_DRIVE_AIDS_STATUS:
@@ -3380,6 +3382,10 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         const uint8_t absDynHold = sbufReadU8(src);
         const uint8_t absCornerFreq = sbufReadU8(src);
         const uint8_t absCornerHold = sbufReadU8(src);
+        // Traction control: optional, all of its fields or none
+        const bool haveTc = (dataSize >= 12);
+        const uint8_t tcMode = haveTc ? sbufReadU8(src) : DRIVE_TC_OFF;
+        const uint16_t tcRampTime = haveTc ? sbufReadU16(src) : DRIVE_TC_RAMP_TIME_MIN;
         if (absMode >= DRIVE_ABS_MODE_COUNT ||
             absFreq < DRIVE_ABS_FREQ_MIN || absFreq > DRIVE_ABS_FREQ_MAX ||
             absFloor > DRIVE_ABS_FLOOR_MAX ||
@@ -3388,7 +3394,9 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             absDynFreq < DRIVE_ABS_FREQ_MIN || absDynFreq > DRIVE_ABS_FREQ_MAX ||
             absDynHold > DRIVE_ABS_HOLD_MAX ||
             absCornerFreq > DRIVE_ABS_CORNER_FREQ_MAX ||
-            absCornerHold > DRIVE_ABS_HOLD_MAX) {
+            absCornerHold > DRIVE_ABS_HOLD_MAX ||
+            tcMode >= DRIVE_TC_MODE_COUNT ||
+            tcRampTime < DRIVE_TC_RAMP_TIME_MIN || tcRampTime > DRIVE_TC_RAMP_TIME_MAX) {
             return MSP_RESULT_ERROR;
         }
         driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_mode = absMode;
@@ -3400,6 +3408,10 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_dyn_hold = absDynHold;
         driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_corner_freq = absCornerFreq;
         driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_corner_hold = absCornerHold;
+        if (haveTc) {
+            driveAidsConfigsMutable(getCurrentPidProfileIndex())->tc_mode = tcMode;
+            driveAidsConfigsMutable(getCurrentPidProfileIndex())->tc_ramp_time = tcRampTime;
+        }
         break;
     }
 

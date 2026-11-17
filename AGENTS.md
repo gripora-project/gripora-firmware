@@ -93,7 +93,7 @@ References:
   and D (never F/B) by `driveGetCorrectionScale()`: zero at a standstill, reduced in reverse, faded in after a
   direction change made without RPM. The yaw I-term is cleared on a direction change.
 - The drive aids ([src/main/flight/drive_aids.c](src/main/flight/drive_aids.c)) shape the throttle/brake command
-  in the mixer before failsafe: timed ABS for now. They only move the command towards neutral, never across it,
+  in the mixer before failsafe: timed ABS and traction control (a throttle rise limit) for now. They only move the command towards neutral, never across it,
   and an ABS release never drops below 10 % brake (a brake-then-reverse ESC must not see neutral mid-brake).
 
 References:

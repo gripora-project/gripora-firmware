@@ -28,7 +28,7 @@
 #include "pg/pg_ids.h"
 #include "pg/drive_aids.h"
 
-PG_REGISTER_ARRAY_WITH_RESET_FN(driveAidsConfig_t, PID_PROFILE_COUNT, driveAidsConfigs, PG_DRIVE_AIDS_CONFIG, 0);
+PG_REGISTER_ARRAY_WITH_RESET_FN(driveAidsConfig_t, PID_PROFILE_COUNT, driveAidsConfigs, PG_DRIVE_AIDS_CONFIG, 1);
 
 void resetDriveAidsConfig(driveAidsConfig_t *config)
 {
@@ -42,6 +42,8 @@ void resetDriveAidsConfig(driveAidsConfig_t *config)
         .abs_dyn_hold = 0,
         .abs_corner_freq = 0,
         .abs_corner_hold = 0,
+        .tc_mode = DRIVE_TC_OFF,
+        .tc_ramp_time = 500,
     );
 }
 
@@ -65,6 +67,11 @@ static void validateAndFixDriveAidsProfile(driveAidsConfig_t *config)
     config->abs_dyn_hold = MIN(config->abs_dyn_hold, DRIVE_ABS_HOLD_MAX);
     config->abs_corner_freq = MIN(config->abs_corner_freq, DRIVE_ABS_CORNER_FREQ_MAX);
     config->abs_corner_hold = MIN(config->abs_corner_hold, DRIVE_ABS_HOLD_MAX);
+
+    if (config->tc_mode >= DRIVE_TC_MODE_COUNT)
+        config->tc_mode = DRIVE_TC_OFF;
+
+    config->tc_ramp_time = constrain(config->tc_ramp_time, DRIVE_TC_RAMP_TIME_MIN, DRIVE_TC_RAMP_TIME_MAX);
 }
 
 void validateAndFixDriveAidsConfig(void)
