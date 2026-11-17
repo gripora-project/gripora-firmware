@@ -73,7 +73,7 @@ MSP frame must be returned to the origin address of the request
 
 ---------------------------------------------------------------
 Version 3 in the status byte is a compact framing of an MSPv2 command,
-used by the Wingflight Lua suites. It carries a 3-byte header instead of 5:
+used by the Gripora Lua suites. It carries a 3-byte header instead of 5:
 <ID_lo><ID_hi><size>, and when the size byte is 0xFF, <size_lo><size_hi>
 follow it. No flags byte. On a 6-byte S.Port/FBUS frame the first chunk then
 carries 2 payload bytes instead of none, one frame fewer on most messages.

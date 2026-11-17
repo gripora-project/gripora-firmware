@@ -4548,7 +4548,7 @@ bool INIT_CODE escSensorInit(void)
 }
 
 // ESC telemetry wiring auto-detect - mirrors rx/rx.c's rxSerialTrial*
-// mechanism (see https://doc.wingflight.org/contributing/tech/rx-wiring-autodetect/) applied to this port's
+// mechanism (see https://doc.gripora.org/contributing/tech/rx-wiring-autodetect/) applied to this port's
 // halfDuplex/pinSwap instead. No `inverted` bit to test - escSensorInit()
 // above always opens SERIAL_NOT_INVERTED - so this is a 4-combo search.
 //

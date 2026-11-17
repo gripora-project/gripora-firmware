@@ -148,7 +148,7 @@
 
 #define TARGET_BOARD_IDENTIFIER "S405"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32F405"
+#define USBD_PRODUCT_STRING     "Gripora STM32F405"
 
 #define USE_I2C_DEVICE_1
 #define USE_I2C_DEVICE_2
@@ -193,7 +193,7 @@
 
 #define TARGET_BOARD_IDENTIFIER "S411"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32F411"
+#define USBD_PRODUCT_STRING     "Gripora STM32F411"
 
 #define USE_I2C_DEVICE_1
 #define USE_I2C_DEVICE_2
@@ -267,13 +267,13 @@
 // F7x2 with the iCE40 FBUS/PWM output mux (board designs ending in M, e.g. F7B5M)
 #define TARGET_BOARD_IDENTIFIER "S7XM"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32F7x2 Mux"
+#define USBD_PRODUCT_STRING     "Gripora STM32F7x2 Mux"
 
 #define USE_FBUS_MUX_FPGA
 #else
 #define TARGET_BOARD_IDENTIFIER "S7X2"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32F7x2"
+#define USBD_PRODUCT_STRING     "Gripora STM32F7x2"
 #endif
 
 #define USE_I2C_DEVICE_1
@@ -317,7 +317,7 @@
 
 #define TARGET_BOARD_IDENTIFIER "S745"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32F745"
+#define USBD_PRODUCT_STRING     "Gripora STM32F745"
 
 #define USE_I2C_DEVICE_1
 #define USE_I2C_DEVICE_2
@@ -364,7 +364,7 @@
 
 #define TARGET_BOARD_IDENTIFIER "SG47"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32G47x"
+#define USBD_PRODUCT_STRING     "Gripora STM32G47x"
 
 #define USE_I2C_DEVICE_1
 #define USE_I2C_DEVICE_2
@@ -415,7 +415,7 @@
 
 #define TARGET_BOARD_IDENTIFIER "SH74"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32H743"
+#define USBD_PRODUCT_STRING     "Gripora STM32H743"
 
 #define USE_I2C_DEVICE_1
 #define USE_I2C_DEVICE_2
@@ -468,7 +468,7 @@
 
 #define TARGET_BOARD_IDENTIFIER "SH73"
 
-#define USBD_PRODUCT_STRING     "Wingflight STM32H730"
+#define USBD_PRODUCT_STRING     "Gripora STM32H730"
 
 // The loader in the internal flash (src/loader) takes firmware updates over DFU:
 // bl and the Configurator's reboot request go there, bl rom to the ROM DFU.

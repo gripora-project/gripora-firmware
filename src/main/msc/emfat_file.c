@@ -48,7 +48,7 @@
 
 #define HDR_BUF_SIZE 32
 // EMFAT requires an exact 11-byte FAT volume label.
-#define EMFAT_VOLUME_LABEL "WINGFLIGHT "
+#define EMFAT_VOLUME_LABEL "GRIPORA    "
 STATIC_ASSERT(sizeof(EMFAT_VOLUME_LABEL) - 1 == 11, emfat_volume_label_length);
 
 #ifdef USE_EMFAT_AUTORUN
@@ -91,7 +91,7 @@ enum {
     EMFAT_PREDEF_ENTRY_COUNT
 };
 
-// WFLT_002_20251012_141213.bbl
+// GRPA_002_20251012_141213.bbl
 //     1234567890123456789012345
 #define EMFAT_MAX_NAME_LENGTH (MAX_NAME_LENGTH + 25)
 
@@ -398,7 +398,7 @@ void emfat_init_files(void)
     }
 
 #ifdef USE_FLASHFS
-    strcpy(logPrefix, pilotConfig()->name[0] ? pilotConfig()->name : "wflt");
+    strcpy(logPrefix, pilotConfig()->name[0] ? pilotConfig()->name : "grpa");
     legalize_filename(logPrefix);
 
     flashInit(flashConfig());

@@ -166,7 +166,7 @@ float rxInputBackupGetChannel(uint8_t channel);
 
 // Backup-port wiring auto-detect ("trial mode") - same mechanism and
 // numeric state values as rx/rx.h's rxSerialTrialState_e for the main RX
-// (see https://doc.wingflight.org/contributing/tech/rx-wiring-autodetect/), applied to one backup
+// (see https://doc.gripora.org/contributing/tech/rx-wiring-autodetect/), applied to one backup
 // port's own inverted/halfDuplex/pinSwap instead. Kept as a separate type rather than
 // sharing rx.h's, since this driver has no other dependency on rx/rx.h.
 // Only one trial runs at a time, on the port named at start.

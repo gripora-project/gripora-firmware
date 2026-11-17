@@ -1,40 +1,38 @@
-# AGENTS Guide: Wingflight Firmware
+# AGENTS Guide: Gripora Firmware
 
 ## Project Identity
 
-Wingflight is a fixed-wing fork of Rotorflight (itself based on Betaflight 4.3) and is intended for winged aircraft only.
+Gripora is stability-control firmware for RC cars: yaw-rate steering stabilization, ABS, traction control and
+launch control. It is a fork of WingFlight (a fixed-wing fork of Rotorflight, itself based on Betaflight 4.3).
 
-Practical positioning for contributors and agents:
+Current state (November 2026): the fork has just been taken. The code is still WingFlight's fixed-wing code,
+rebranded. The car conversion is in progress, so:
 
-- Wingflight is a stabilizer-focused firmware for line-of-sight wing flying.
-- Primary airframes include 3D airplanes, jets, gliders, and other fixed-wing models.
-- The codebase intentionally shifts away from helicopter-specific assumptions.
+- Expect aircraft concepts (flight modes, control surfaces, `WINGFLIGHT_AIRPLANE`, GPS rescue, thrust vectoring)
+  that are due to be removed or replaced by car equivalents. Don't extend them; ask before deleting them.
+- Car features are added under `src/main/flight/` (the directory name is inherited) until a reorganisation is agreed.
+- WingFlight fixes can be pulled in from the `upstream` remote (`WingFlight/wingflight-firmware`); keep diffs to
+  inherited code small to make that easy.
 
 Reference: [README.md](README.md)
 
 ## Project Components
 
-Wingflight is split across several repositories under <https://github.com/WingFlight>:
+Gripora is split across several repositories under <https://github.com/gripora-project>:
 
 | Repository | Purpose |
 | --- | --- |
-| [wingflight-firmware](https://github.com/WingFlight/wingflight-firmware) | Flight controller firmware (this repository) |
-| [wingflight-targets](https://github.com/WingFlight/wingflight-targets) | Board configurations (custom defaults) applied on top of the unified targets |
-| [wingflight-configurator](https://github.com/WingFlight/wingflight-configurator) | Desktop/web app for flashing and configuring the FC over MSP |
-| [wingflight-blackbox](https://github.com/WingFlight/wingflight-blackbox) | Blackbox Explorer for analysing flight logs |
-| [wingflight-lua-edgetx](https://github.com/WingFlight/wingflight-lua-edgetx) | Transmitter Lua scripts for EdgeTX |
-| [wingflight-lua-edgetx-updater](https://github.com/WingFlight/wingflight-lua-edgetx-updater) | Updater for the EdgeTX Lua scripts |
-| [wingflight-lua-ethos-suite](https://github.com/WingFlight/wingflight-lua-ethos-suite) | Lua suite for FrSky Ethos |
-| [wingflight-lua-ethos-suite-updater](https://github.com/WingFlight/wingflight-lua-ethos-suite-updater) | Updater for the Ethos Lua suite |
-| [wingflight-msp-ble-bridge](https://github.com/WingFlight/wingflight-msp-ble-bridge) | ESP32-C3 Bluetooth LE bridge for configuring the FC over MSP |
-| [wingflight-artifacts](https://github.com/WingFlight/wingflight-artifacts) | Firmware builds mirrored for browser downloads by the web configurator |
-| [wingflight-docs](https://github.com/WingFlight/wingflight-docs) | Documentation website (<https://doc.wingflight.org>) |
-| [wingflight-driver-fixer](https://github.com/WingFlight/wingflight-driver-fixer) | Windows tool that installs the USB bootloader/DFU driver for WebUSB flashing |
-| [rotorflight-to-wingflight](https://github.com/WingFlight/rotorflight-to-wingflight) | Windows app that converts a Rotorflight flight controller to Wingflight |
-| [wingflight-landing-page](https://github.com/WingFlight/wingflight-landing-page) | Project landing page |
+| [gripora-firmware](https://github.com/gripora-project/gripora-firmware) | Controller firmware (this repository) |
+| [gripora-targets](https://github.com/gripora-project/gripora-targets) | Board configurations (custom defaults) applied on top of the unified targets |
+| [gripora-configurator](https://github.com/gripora-project/gripora-configurator) | Desktop/web app for flashing and configuring the controller over MSP |
+| [gripora-blackbox](https://github.com/gripora-project/gripora-blackbox) | Blackbox Explorer for analysing logs |
+| [gripora-lua-edgetx](https://github.com/gripora-project/gripora-lua-edgetx) | Transmitter Lua scripts for EdgeTX |
+| [gripora-lua-ethos-suite](https://github.com/gripora-project/gripora-lua-ethos-suite) | Lua suite for FrSky Ethos |
+| [gripora-docs](https://github.com/gripora-project/gripora-docs) | Documentation website (<https://doc.gripora.org>) |
+| [gripora-website](https://github.com/gripora-project/gripora-website) | Project website (<https://gripora.org>) and logo/branding assets |
 
-The Configurator, the Lua scripts and the BLE bridge talk to the firmware over MSP, so MSP changes here affect all
-of them.
+The firmware identifies itself over MSP as `Gripora` / `GRPA`. The Configurator and the Lua scripts talk to the
+firmware over MSP and check that identifier, so MSP changes here affect all of them.
 
 ## What Changed vs Rotorflight (Code-Backed)
 
@@ -148,25 +146,25 @@ Parameter groups are the exception: bump the PG version (last argument of `PG_RE
 ## Where Documentation Lives
 
 - **User-facing documentation** (setup, Configurator tabs, flight modes, CLI reference) lives in the
-  [wingflight-docs](https://github.com/WingFlight/wingflight-docs) repository, published at
-  <https://doc.wingflight.org>. It is the source of truth. Do not add or update user documentation in this
-  repository's `docs/`. Change wingflight-docs instead, and note in the PR when a behaviour change needs a
+  [gripora-docs](https://github.com/gripora-project/gripora-docs) repository, published at
+  <https://doc.gripora.org>. It is the source of truth. Do not add or update user documentation in this
+  repository's `docs/`. Change gripora-docs instead, and note in the PR when a behaviour change needs a
   matching docs page update.
 - **Developer and internals documentation** (code guidelines, coding style, parameter groups, configuration and
   Blackbox formats, SmartFuel internals, hardware debugging) is in the Technical Reference under Contributing on
-  the same site: <https://doc.wingflight.org/contributing/tech/>.
+  the same site: <https://doc.gripora.org/contributing/tech/>.
 - **`docs/` in this repository** holds only a README that points at the docs site. Do not add documents there; add
-  them to wingflight-docs, and link to them by URL from source comments.
+  them to gripora-docs, and link to them by URL from source comments.
 
 ## Build and Test
 
 The ARM toolchain does not need to be installed by hand: `make arm_sdk_install` downloads the version the
 Makefile expects into `tools/`.
 
-Wingflight builds **unified targets**, one firmware per MCU family: `STM32F405`, `STM32F411`, `STM32F7X2`,
+Gripora builds **unified targets**, one firmware per MCU family: `STM32F405`, `STM32F411`, `STM32F7X2`,
 `STM32F745`, `STM32G47X`, `STM32H743` (see [make/targets_list.mk](make/targets_list.mk)). Board-specific pin
 mappings and defaults are not in this repository; they live in
-[wingflight-targets](https://github.com/WingFlight/wingflight-targets) and are applied as a config on top of
+[gripora-targets](https://github.com/gripora-project/gripora-targets) and are applied as a config on top of
 the unified firmware.
 
 Prefer `STM32F7X2` for test builds.
@@ -192,7 +190,7 @@ need extra care and, where possible, a new test.
 
 ## Before Changing Flight-Control Code
 
-Read [Flight Dynamics](https://doc.wingflight.org/contributing/tech/flight-dynamics/) in the Technical
+Read [Flight Dynamics](https://doc.gripora.org/contributing/tech/flight-dynamics/) in the Technical
 Reference. It records the signal chain, the design rationale behind each stage, and a review of known defects. Two things to keep in mind:
 
 - Sign conventions are easy to get wrong. Attitude pitch is **positive nose-down**, RC yaw is negated once in
@@ -217,6 +215,6 @@ Maintainers and users read these, so keep them short and precise. No filler, no 
 - Title: imperative, under ~70 characters (e.g. "Fix ATTHOLD drift after stick release").
 - Body, a few lines each:
   - **What**: the change and why it is needed. Link the issue (`Fixes #123`).
-  - **Compatibility**: MSP, CLI or setting changes, and whether the Configurator or wingflight-docs need updating.
+  - **Compatibility**: MSP, CLI or setting changes, and whether the Configurator or gripora-docs need updating.
   - **Testing**: what was built and run (unit tests, SITL, bench, flight).
 - One topic per PR. Leave out file-by-file change lists and generated summaries.

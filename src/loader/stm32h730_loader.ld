@@ -1,5 +1,5 @@
 /*
- * Wingflight loader in the STM32H730's 128K internal flash, see main.c
+ * Gripora loader in the STM32H730's 128K internal flash, see main.c
  */
 
 ENTRY(Reset_Handler)

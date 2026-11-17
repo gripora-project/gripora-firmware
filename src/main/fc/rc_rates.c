@@ -155,7 +155,7 @@ void set_ADJUSTMENT_YAW_RC_EXPO(int value)
 
 /*** Rates Curve Function ***/
 
-static float applyWingflightRates(const int axis, const float rcCommandAbs)
+static float applyGriporaRates(const int axis, const float rcCommandAbs)
 {
     float rcRate = currentControlRateProfile->rcRates[axis] * 5;
     float rcExpo = currentControlRateProfile->rcExpo[axis] / 100.0f;
@@ -174,7 +174,7 @@ float applyRatesCurve(const int axis, const float rcCommandf)
 {
     const float rcCommandAbs = fabsf(rcCommandf);
 
-    float rate = applyWingflightRates(axis, rcCommandAbs);
+    float rate = applyGriporaRates(axis, rcCommandAbs);
 
     rate = fminf(rate, SETPOINT_RATE_LIMIT);
     rate = copysignf(rate, rcCommandf);

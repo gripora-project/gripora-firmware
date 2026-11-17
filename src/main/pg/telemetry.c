@@ -48,13 +48,13 @@ PG_RESET_TEMPLATE(telemetryConfig_t, telemetryConfig,
         IBUS_SENSOR_TYPE_EXTERNAL_VOLTAGE
     },
     .mavlink_mah_as_heading_divisor = 0,
-    // Custom: the Wingflight radio Lua suites decode the custom sensor frames.
+    // Custom: the Gripora radio Lua suites decode the custom sensor frames.
     .crsf_telemetry_mode = CRSF_TELEMETRY_MODE_CUSTOM,
     .crsf_telemetry_link_rate = 250,
     .crsf_telemetry_link_ratio = 8,
-    // Default sensor selection: what the Wingflight radio Lua suites read. Same IDs, in the
+    // Default sensor selection: what the Gripora radio Lua suites read. Same IDs, in the
     // same ascending order, as the Ethos suite writes for its "Default" button
-    // (wingflight-lua-ethos-suite lib/telemetry_sensor_catalog.lua DEFAULT_IDS), so a model
+    // (gripora-lua-ethos-suite lib/telemetry_sensor_catalog.lua DEFAULT_IDS), so a model
     // set up either way shows no telemetry_sensors diff. Keep the two in sync.
     .telemetry_sensors = {
         TELEM_BATTERY_VOLTAGE,          // 3

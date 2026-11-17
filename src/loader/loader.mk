@@ -1,5 +1,5 @@
 ###############################################################################
-# Wingflight loader for the STM32H730 (XIP targets), see src/loader/main.c
+# Gripora loader for the STM32H730 (XIP targets), see src/loader/main.c
 #
 # Included by the main Makefile when XIP=yes. Builds $(LOADER_HEX), which is
 # merged with the firmware into $(TARGET_HEX).

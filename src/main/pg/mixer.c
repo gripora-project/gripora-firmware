@@ -27,7 +27,7 @@
 
 // v1: tail_rotor_mode (legacy heli tail-rotor mode: variable pitch vs.
 // motorized vs. bidirectional) plus model_type. v2: tail_rotor_mode removed
-// -- it has no meaning for wingflight's fixed-wing mixer, and the RPM
+// -- it has no meaning for the inherited WingFlight fixed-wing mixer, and the RPM
 // filter/motor code that used to key off it now just checks whether a
 // second motor is configured (getMotorCount() > 1). Removing the field
 // shifts model_type into tail_rotor_mode's old byte offset, so the PG

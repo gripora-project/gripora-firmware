@@ -2,7 +2,7 @@ name: Feature Branch Dev Build
 
 # Publishes a rolling GitHub prerelease (tag dev/<branch-slug>) for every push
 # to a feature/** branch, so the matching per-branch configurator page
-# (deployed by wingflight-configurator's deploy-web.yml) can flash it
+# (deployed by gripora-configurator's deploy-web.yml) can flash it
 # straight from the Firmware Flasher tab's "Development" build type -- no
 # configurator changes needed, it already lists any prerelease on this repo.
 #
@@ -60,7 +60,7 @@ jobs:
         # firmware's semver string AND the .hex filename. Semver prerelease
         # identifiers only allow [0-9A-Za-z-], while the configurator's
         # release-parsing filename regex only allows [0-9A-Za-z_] in this
-        # position (see wingflight-configurator's firmware_flasher/util.js
+        # position (see gripora-configurator's firmware_flasher/util.js
         # FILENAME_EXPRESSION) -- the only characters satisfying both is
         # plain alphanumeric, so strip everything else rather than
         # substituting a separator. A malformed semver string here isn't
@@ -108,28 +108,28 @@ jobs:
           echo "accumulated. Not for production use."
         } > Notes.md
         gh release create "${GIT_TAG}" --prerelease --notes-file Notes.md \
-          --title "Wingflight Dev Build: ${BRANCH}" obj/*.hex
+          --title "Gripora Dev Build: ${BRANCH}" obj/*.hex
 
-    - name: Generate wingflight-artifacts App token
+    - name: Generate gripora-artifacts App token
       id: artifacts-app-token
       uses: actions/create-github-app-token@v2
       with:
         app-id: ${{ secrets.ARTIFACTS_APP_ID }}
         private-key: ${{ secrets.ARTIFACTS_APP_PRIVATE_KEY }}
-        owner: WingFlight
-        repositories: wingflight-artifacts
+        owner: gripora-project
+        repositories: gripora-artifacts
 
     - name: Publish firmware for browser downloads
       env:
         ARTIFACTS_REPO_TOKEN: ${{ steps.artifacts-app-token.outputs.token }}
       run: |
-        git clone --depth 1 "https://x-access-token:${ARTIFACTS_REPO_TOKEN}@github.com/WingFlight/wingflight-artifacts.git" artifacts-repo
+        git clone --depth 1 "https://x-access-token:${ARTIFACTS_REPO_TOKEN}@github.com/gripora-project/gripora-artifacts.git" artifacts-repo
         rm -rf "artifacts-repo/firmware/${GIT_TAG}"
         mkdir -p "artifacts-repo/firmware/${GIT_TAG}"
         cp obj/*.hex "artifacts-repo/firmware/${GIT_TAG}/"
         cd artifacts-repo
-        git config user.name "wingflight-artifacts[bot]"
-        git config user.email "wingflight-artifacts[bot]@users.noreply.github.com"
+        git config user.name "gripora-artifacts[bot]"
+        git config user.email "gripora-artifacts[bot]@users.noreply.github.com"
         git add "firmware/${GIT_TAG}"
         git commit -m "firmware: ${GIT_TAG} (${GITHUB_SHA})"
         git push origin master
@@ -173,24 +173,24 @@ jobs:
           grep -q "release not found" <<< "$OUT" || { echo "$OUT" >&2; exit 1; }
         fi
 
-    - name: Generate wingflight-artifacts App token
+    - name: Generate gripora-artifacts App token
       id: artifacts-app-token
       uses: actions/create-github-app-token@v2
       with:
         app-id: ${{ secrets.ARTIFACTS_APP_ID }}
         private-key: ${{ secrets.ARTIFACTS_APP_PRIVATE_KEY }}
-        owner: WingFlight
-        repositories: wingflight-artifacts
+        owner: gripora-project
+        repositories: gripora-artifacts
 
     - name: Remove mirrored artifacts
       env:
         ARTIFACTS_REPO_TOKEN: ${{ steps.artifacts-app-token.outputs.token }}
       run: |
-        git clone --depth 1 "https://x-access-token:${ARTIFACTS_REPO_TOKEN}@github.com/WingFlight/wingflight-artifacts.git" artifacts-repo
+        git clone --depth 1 "https://x-access-token:${ARTIFACTS_REPO_TOKEN}@github.com/gripora-project/gripora-artifacts.git" artifacts-repo
         if [ -d "artifacts-repo/firmware/${GIT_TAG}" ]; then
           cd artifacts-repo
-          git config user.name "wingflight-artifacts[bot]"
-          git config user.email "wingflight-artifacts[bot]@users.noreply.github.com"
+          git config user.name "gripora-artifacts[bot]"
+          git config user.email "gripora-artifacts[bot]@users.noreply.github.com"
           git rm -r "firmware/${GIT_TAG}"
           git commit -m "firmware: remove ${GIT_TAG} (branch deleted)"
           git push origin master

@@ -23,7 +23,7 @@
 
 #include "config/feature.h"
 
-// Telemetry is on by default on every target: the Wingflight radio Lua suites depend on it.
+// Telemetry is on by default on every target: the Gripora radio Lua suites depend on it.
 #ifdef USE_TELEMETRY
 #define DEFAULT_TELEMETRY_FEATURE   FEATURE_TELEMETRY
 #else

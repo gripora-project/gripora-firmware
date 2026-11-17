@@ -25,7 +25,7 @@
 // F7: 32 words
 // H7: 32 words
 
-// Set by the Wingflight loader (src/loader/main.c) when the host erases the chip over DFU
+// Set by the Gripora loader (src/loader/main.c) when the host erases the chip over DFU
 #define PERSISTENT_ERASE_CONFIG_REQUEST 0x45524346  // "ERCF"
 // Left by the firmware after it erased the config, for the boot after the reset that follows
 #define PERSISTENT_ERASE_FLASHFS_REQUEST 0x45524653 // "ERFS"

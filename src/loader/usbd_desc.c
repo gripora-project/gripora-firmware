@@ -1,12 +1,12 @@
 /*
- * This file is part of Wingflight.
+ * This file is part of Gripora.
  *
- * Wingflight is free software. You can redistribute it and/or modify
+ * Gripora is free software. You can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Wingflight is distributed in the hope that it will be useful,
+ * Gripora is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
@@ -30,8 +30,8 @@
 #define USBD_VID                0x0483
 #define USBD_PID                0xDF11
 #define USBD_LANGID             0x0409
-#define USBD_MANUFACTURER       "Wingflight"
-#define USBD_PRODUCT            "Wingflight Loader"
+#define USBD_MANUFACTURER       "Gripora"
+#define USBD_PRODUCT            "Gripora Loader"
 #define USBD_CONFIGURATION      "DFU Config"
 #define USBD_INTERFACE          "DFU Interface"
 

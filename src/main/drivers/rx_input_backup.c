@@ -391,7 +391,7 @@ void rxInputBackupInit(void)
 }
 
 // Backup-port wiring auto-detect - mirrors rx/rx.c's rxSerialTrial* mechanism
-// (see https://doc.wingflight.org/contributing/tech/rx-wiring-autodetect/) applied to one backup port instead:
+// (see https://doc.gripora.org/contributing/tech/rx-wiring-autodetect/) applied to one backup port instead:
 // cycle inverted/halfDuplex/pinSwap live and report which combo (if any)
 // produces a valid frame. No persistence here either - the caller (MSP)
 // only ever reads the winning combo back out of a SUCCESS status and applies

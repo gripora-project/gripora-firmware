@@ -1,12 +1,12 @@
 /*
- * This file is part of Wingflight.
+ * This file is part of Gripora.
  *
- * Wingflight is free software. You can redistribute it and/or modify
+ * Gripora is free software. You can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Wingflight is distributed in the hope that it will be useful,
+ * Gripora is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
@@ -22,7 +22,7 @@
 /*
  * Packed status words for the TELEM_SYSTEM_STATUS and TELEM_SYSTEM_CONFIG telemetry sensors.
  *
- * The radio-side Lua (wingflight-lua-ethos-suite lib/system_status.lua, wingflight-lua-edgetx)
+ * The radio-side Lua (gripora-lua-ethos-suite lib/system_status.lua, gripora-lua-edgetx)
  * decode these by bit position, so any change to the layout must ship together with the matching
  * Lua update. Bit 31 of both words stays clear because SmartPort carries the value as a signed
  * 32-bit int.

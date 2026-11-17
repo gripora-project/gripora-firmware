@@ -1,6 +1,6 @@
 ## SITL
 
-`TARGET=SITL` builds Wingflight as a native executable that talks to an external
+`TARGET=SITL` builds Gripora as a native executable that talks to an external
 flight dynamics model over UDP. The simulator tooling (JSBSim bridge, launcher,
 aircraft models, joystick RC, automated checks) lives in the
 [wingflight-sitl-hitl](https://github.com/WingFlight/wingflight-sitl-hitl) repo,
@@ -10,18 +10,18 @@ whose `setup-sitl.ps1` checks out, builds and launches everything.
 
 ```sh
 make mingw_sdk_install      # Windows only, once: native MinGW-w64 GCC into tools/mingw64
-make TARGET=SITL            # -> obj/main/wingflight_SITL.elf (a native executable)
+make TARGET=SITL            # -> obj/main/gripora_SITL.elf (a native executable)
 ```
 
 On Linux/macOS the system `gcc` is used. Delete any stale
-`obj/main/wingflight_SITL.exe`: `make` only produces the `.elf`.
+`obj/main/gripora_SITL.exe`: `make` only produces the `.elf`.
 
 ### Ports
 
 | Direction | Address | Payload |
 |---|---|---|
-| Wingflight -> simulator | `udp://127.0.0.1:9002` | `servo_packet`: `motor_speed[4]` (M1-M4) + `servo[8]` (S1-S8, us) |
-| Simulator -> Wingflight | `udp://127.0.0.1:9003` | `fdm_packet`: IMU, attitude quaternion, velocity, NED position; `baro_packet`: absolute pressure and temperature |
+| Gripora -> simulator | `udp://127.0.0.1:9002` | `servo_packet`: `motor_speed[4]` (M1-M4) + `servo[8]` (S1-S8, us) |
+| Simulator -> Gripora | `udp://127.0.0.1:9003` | `fdm_packet`: IMU, attitude quaternion, velocity, NED position; `baro_packet`: absolute pressure and temperature |
 | UARTx <-> MSP clients | `tcp://127.0.0.1:576x` | one client per port; config defaults: 5761 RC, 5762 GPS feed (`GPS_MSP`), 5763 Configurator |
 | UART4 <-> FBUS sensors | `tcp://127.0.0.1:5764` | config default: FBUS master; the simulator answers as a FrSky ESC and echoes each master frame, as the single wire would |
 
