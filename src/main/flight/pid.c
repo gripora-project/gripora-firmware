@@ -864,8 +864,14 @@ static void pidApplyMode1(uint8_t axis)
     // Hold the accumulation; decay below still applies as normal.
     const bool bypassed = mixerStabilizationBypassed();
 
-    // I-term change, held in proportion to the correction scale
-    const float itermDelta = (saturation || bypassed) ? 0 : itermErrorRate * pid.dT * corr;
+    // I-term change, held in proportion to the correction scale. Disarmed (on the bench) the
+    // yaw I-term is held at zero: the car can't respond, and whatever built up would arrive
+    // as a steering bump on arming.
+    const bool benchHold = (axis == PID_YAW) && !ARMING_FLAG(ARMED);
+    if (benchHold) {
+        pid.data[axis].axisError = 0;
+    }
+    const float itermDelta = (saturation || bypassed || benchHold) ? 0 : itermErrorRate * pid.dT * corr;
 
     // Calculate I-component
     pid.data[axis].axisError = limitf(pid.data[axis].axisError + itermDelta, pid.errorLimit[axis]);

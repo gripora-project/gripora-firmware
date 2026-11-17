@@ -289,6 +289,7 @@ class PIDBypassTest : public PIDTestBase {
         stabilizationBypassed = bypassed;
         onlyGains(0, 100, 0, 0);
         pidInit(mockPidProfile);
+        ENABLE_ARMING_FLAG(ARMED);
 
         PIDIO input;
         for (int i = 0; i < 200; i++) {
@@ -391,6 +392,33 @@ TEST_F(PIDAttenuationTest, ThrottleCurveUsesThrottleMagnitude)
     EXPECT_NEAR(yawOutputAt(100, 240), neutral * 0.5f, fabsf(neutral) * 1e-4f);
 }
 
+TEST_F(PIDTestBase, BenchCorrectsWithoutWindingI)
+// Disarmed is the bench: with RPM showing a standstill the gyro still corrects (so turning the
+// car by hand shows it), but the yaw I-term stays at zero so nothing carries into arming
+{
+    onlyGains(100, 100, 0, 0);
+    pidInit(mockPidProfile);
+    rpmActive = true;
+    wheelRpm = 0;
+
+    PIDIO input;
+    for (int i = 0; i < 200; i++) {
+        for (int axis = 0; axis < 4; axis++) {
+            input[axis].push_back(0);
+        }
+    }
+
+    gyro.gyroADCf[PID_YAW] = 40;
+    PIDIO output = getResponse(input);
+    EXPECT_NE(output[PID_YAW][199], 0);
+    EXPECT_EQ(pidGetAxisData()[PID_YAW].axisError, 0);
+
+    // Armed and standing still, the speed fade takes the correction away
+    ENABLE_ARMING_FLAG(ARMED);
+    output = getResponse(input);
+    EXPECT_EQ(output[PID_YAW][199], 0);
+}
+
 TEST_F(PIDTestBase, ItermDecaysWithoutAirborneGating)
 // A car is always on the ground: I accumulates from arming on and decays at the
 // configured rate, with no take-off detection holding it back
@@ -398,6 +426,7 @@ TEST_F(PIDTestBase, ItermDecaysWithoutAirborneGating)
     onlyGains(0, 100, 0, 0);
     mockPidProfile->iterm_decay_time[PID_YAW] = 100;   // 1 s
     pidInit(mockPidProfile);
+    ENABLE_ARMING_FLAG(ARMED);
 
     // Stick held: I builds
     PIDIO input;

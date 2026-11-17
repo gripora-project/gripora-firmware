@@ -279,7 +279,13 @@ void driveUpdateFrom(bool armed, float throttle, bool rpmKnown, float wheelRpm,
 
     const float rampFactor = drive.rampTime / DRIVE_DIR_CHANGE_RAMP_S;
 
-    drive.scale = driveSpeedFactor() * driveReverseFactor() * rampFactor;
+    // Disarmed is the bench: the motor can't run, and turning the car by hand must show the
+    // gyro correcting (the setup wizard's direction check), so the speed fade doesn't apply.
+    // Direction is forward and the ramp complete while disarmed; pid.c holds the I-term at
+    // zero, so nothing built up on the bench carries into arming.
+    const float speedFactor = armed ? driveSpeedFactor() : 1.0f;
+
+    drive.scale = speedFactor * driveReverseFactor() * rampFactor;
 
     DEBUG(DRIVE, 0, lrintf(throttle * 1000));
     DEBUG(DRIVE, 1, drive.state);
