@@ -46,6 +46,8 @@
 
 #include "flight/imu.h"
 #include "flight/mixer.h"
+#include "flight/drive.h"
+#include "flight/drive_aids.h"
 #include "flight/position.h"
 
 #include "io/gps.h"
@@ -482,6 +484,12 @@ static void crsfFlightModeInfo(char *buf)
         flightMode = "FAILSAFE";
     } else if (FLIGHT_MODE(PASSTHROUGH_MODE)) {
         flightMode = "GYRO OFF";
+    } else if (mixerDriftActive()) {
+        flightMode = "DRIFT";
+    } else if (driveAidsGetFlags() & (DRIVE_AIDS_FLAG_LC_STAGED | DRIVE_AIDS_FLAG_LC_ACTIVE)) {
+        flightMode = "LAUNCH";
+    } else if (IS_RC_MODE_ACTIVE(BOXDRIVEAIDSOFF)) {
+        flightMode = "AIDS OFF";
     } else {
         flightMode = "NORMAL";
     }
@@ -783,6 +791,8 @@ static const crsfSensorDefinition_t crsfCustomSensorDefinitions[] =
     TLM_SENSOR(MODEL_ID,                0x1200,   200,  3000,    0,     U8),
     TLM_SENSOR(FLIGHT_MODE,             0x1201,   200,  3000,    0,     U16),
     TLM_SENSOR(ARMING_DISABLE_FLAGS,    0x1203,   200,  3000,    0,     U32),
+    TLM_SENSOR(DRIVE_STATUS,            0x1205,   100,  3000,    0,     U16),
+    TLM_SENSOR(DRIVE_SPEED,             0x1206,   100,  3000,    0,     S16),
 
     TLM_SENSOR(ADJFUNC,                 0x1220,   200,  3000,    0,     AdjFunc),
 

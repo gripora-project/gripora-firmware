@@ -29,7 +29,7 @@
 #include "telemetry/sensors.h"
 
 
-PG_REGISTER_WITH_RESET_TEMPLATE(telemetryConfig_t, telemetryConfig, PG_TELEMETRY_CONFIG, 6);
+PG_REGISTER_WITH_RESET_TEMPLATE(telemetryConfig_t, telemetryConfig, PG_TELEMETRY_CONFIG, 7);
 
 PG_RESET_TEMPLATE(telemetryConfig_t, telemetryConfig,
     .telemetry_inverted = false,
@@ -65,11 +65,11 @@ PG_RESET_TEMPLATE(telemetryConfig_t, telemetryConfig,
         TELEM_BEC_VOLTAGE,              // 43
         TELEM_ESC_TEMP,                 // 50
         TELEM_MCU_TEMP,                 // 52
-        TELEM_ALTITUDE,                 // 58
-        TELEM_VARIOMETER,               // 59
         TELEM_MOTOR1SPEED,              // 60
         TELEM_FLIGHT_MODE,              // 89
         TELEM_ARMING_DISABLE_FLAGS,     // 91
+        TELEM_DRIVE_STATUS,             // 93
+        TELEM_DRIVE_SPEED,              // 94
         TELEM_ADJFUNC,                  // 99
         TELEM_SYSTEM_STATUS,            // 120
         TELEM_SYSTEM_CONFIG,            // 121

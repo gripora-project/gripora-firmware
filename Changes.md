@@ -11,6 +11,25 @@ Gripora's MSP protocol is its own from here: the API version is 33.0
 unchanged. Everything listed under the Gripora sections below is part of
 API 33.0; clients accept 33.x only.
 
+## Drive telemetry
+
+Two telemetry sensors for the car, in the slots of the removed heli governor
+sensors (`src/main/telemetry/sensors.c`):
+
+- `TELEM_DRIVE_STATUS` (93; CRSF custom 0x1205 U16, SmartPort 0x5125): bits
+  0-6 the drive aids flags (aids on, ABS armed, ABS releasing, TC armed, TC
+  holding back, launch staged, launching), bit 8 GYRO OFF, bit 9 DRIFT, bit 10
+  LAUNCH switch on, bit 11 DRIVE AIDS OFF on, bit 12 reversing, bit 13 speed
+  known.
+- `TELEM_DRIVE_SPEED` (94; CRSF custom 0x1206 S16, SmartPort 0x5126): wheel
+  speed from the drive state in 0.1 km/h, negative while reversing, 0 without
+  a speed source.
+- The default `telemetry_sensors` list carries both in place of altitude and
+  variometer; `PG_TELEMETRY_CONFIG` is now v7 (the sensor list resets on
+  upgrade).
+- The CRSF flight mode text shows DRIFT, LAUNCH (staged or launching) and AIDS
+  OFF as well as NORMAL, GYRO OFF and FAILSAFE.
+
 ## Drift mode
 
 New mode `DRIFT` (permanent id 68) for drifting (`pidApplyDrift()` in

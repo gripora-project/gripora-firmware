@@ -141,7 +141,9 @@ typedef enum
     // 90 free (was arming flags, now in TELEM_SYSTEM_STATUS)
     TELEM_ARMING_DISABLE_FLAGS          = 91,
     // 92 free (was heli rescue)
-    // 93, 94 free (were heli governor)
+    // Car drive state, in the slots of the removed heli governor sensors
+    TELEM_DRIVE_STATUS                  = 93,
+    TELEM_DRIVE_SPEED                   = 94,
 
     // 95-98 free (were PID/rates/battery/LED profile, now in TELEM_SYSTEM_CONFIG)
 

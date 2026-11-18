@@ -44,6 +44,8 @@
 
 #include "flight/position.h"
 #include "flight/mixer.h"
+#include "flight/drive.h"
+#include "flight/drive_aids.h"
 #include "flight/imu.h"
 
 #include "io/gps.h"
@@ -159,6 +161,29 @@ static int getFbusSensorValue(uint8_t sensorIndex)
     return 0;
 }
 #endif
+
+// TELEM_DRIVE_STATUS: bits 0-6 the drive aids flags (driveAidsGetFlags(): aids on, ABS armed,
+// ABS releasing, TC armed, TC holding back, launch staged, launching); bit 8 GYRO OFF, bit 9
+// DRIFT, bit 10 LAUNCH switch on, bit 11 DRIVE AIDS OFF on, bit 12 reversing, bit 13 speed known.
+static uint32_t telemetryDriveStatus(void)
+{
+    uint32_t status = driveAidsGetFlags();
+
+    if (mixerStabilizationBypassed())
+        status |= BIT(8);
+    if (mixerDriftActive())
+        status |= BIT(9);
+    if (IS_RC_MODE_ACTIVE(BOXLAUNCH))
+        status |= BIT(10);
+    if (IS_RC_MODE_ACTIVE(BOXDRIVEAIDSOFF))
+        status |= BIT(11);
+    if (driveIsReversing())
+        status |= BIT(12);
+    if (driveSpeedKnown())
+        status |= BIT(13);
+
+    return status;
+}
 
 int telemetrySensorValue(sensor_id_e id)
 {
@@ -340,6 +365,12 @@ int telemetrySensorValue(sensor_id_e id)
             return flightModeFlags;
         case TELEM_ARMING_DISABLE_FLAGS:
             return getArmingDisableFlags();
+
+        case TELEM_DRIVE_STATUS:
+            return telemetryDriveStatus();
+        case TELEM_DRIVE_SPEED:
+            // 0.1 km/h, negative while reversing; 0 when no speed source
+            return lrintf(driveGetSpeedKmh() * 10) * driveGetDirection();
 
         case TELEM_SYSTEM_STATUS:
             return telemetrySystemStatus();
@@ -530,6 +561,10 @@ bool telemetrySensorActive(sensor_id_e id)
         case TELEM_MODEL_ID:
         case TELEM_FLIGHT_MODE:
         case TELEM_ARMING_DISABLE_FLAGS:
+            return true;
+
+        case TELEM_DRIVE_STATUS:
+        case TELEM_DRIVE_SPEED:
             return true;
 
         case TELEM_SYSTEM_STATUS:
