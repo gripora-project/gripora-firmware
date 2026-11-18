@@ -53,6 +53,7 @@
 #include "flight/drive.h"
 
 #include "pg/drive_aids.h"
+#include "pg/drift.h"
 #include "flight/mixer.h"
 #include "flight/rpm_filter.h"
 #include "flight/speed_atten.h"
@@ -598,6 +599,7 @@ void INIT_CODE pidCopyProfile(uint8_t dstPidProfileIndex, uint8_t srcPidProfileI
         memcpy(pidProfilesMutable(dstPidProfileIndex), pidProfilesMutable(srcPidProfileIndex), sizeof(pidProfile_t));
         memcpy(fwSpaConfigsMutable(dstPidProfileIndex), fwSpaConfigs(srcPidProfileIndex), sizeof(fwSpaConfig_t));
         memcpy(driveAidsConfigsMutable(dstPidProfileIndex), driveAidsConfigs(srcPidProfileIndex), sizeof(driveAidsConfig_t));
+        memcpy(driftConfigsMutable(dstPidProfileIndex), driftConfigs(srcPidProfileIndex), sizeof(driftConfig_t));
     }
 }
 
@@ -909,6 +911,52 @@ static void pidApplyMode1(uint8_t axis)
 }
 
 
+// DRIFT: the steering wheel goes straight to the steering servo, as in GYRO OFF, so the driver
+// sets the wheel angle (in a drift the front wheels point against the rotation, so a turn rate
+// target from the stick would be the wrong way round). The gyro adds counter-steer against the
+// turn rate beyond drift_allow, which lets the car hold a slip angle and catches it when it
+// over-rotates: drift_gain 100 % gives full lock at DRIFT_FULL_RATE deg/s past the allowance, and
+// the counter-steer never exceeds drift_limit % of full lock. D damps as in the normal loop.
+// There is no I-term (no heading hold): it is held at zero, so leaving DRIFT starts clean.
+// The throttle/speed attenuation and the drive state's correction scale (standstill, reverse,
+// direction change) apply to the counter-steer and D as they do to P and D normally.
+static void pidApplyDrift(uint8_t axis)
+{
+    const driftConfig_t *drift = driftConfigs(getCurrentPidProfileIndex());
+
+    // The rate setpoint is kept for logs and the B filter, but does not steer
+    const float setpoint = pidApplySetpoint(axis);
+    const float gyroRate = pidApplyGyroRate(axis);
+
+    const float atten = pidSurfaceAttenuation();
+    const float corr = driveGetCorrectionScale();
+
+    // Turn rate past the allowance, either way
+    const float allow = drift->allow;
+    const float excess = (gyroRate > allow) ? gyroRate - allow : (gyroRate < -allow) ? gyroRate + allow : 0.0f;
+
+    // Counter-steer, as a share of full lock; the same sign as P on (0 - gyroRate)
+    const float limit = drift->limit * 0.01f;
+    const float counter = constrainf(-drift->gain * 0.01f * excess / DRIFT_FULL_RATE, -limit, limit);
+
+    pid.data[axis].P = counter * atten * corr;
+
+    const float dTerm = difFilterApply(&pid.dtermFilter[axis], -gyroRate);
+    pid.data[axis].D = pid.coef[axis].Kd * pid.masterGain[axis] * atten * corr * dTerm;
+
+    pid.data[axis].axisError = 0;
+    pid.data[axis].I = 0;
+
+    // Steering wheel straight through, with the same reversal as GYRO OFF (mixer.c)
+    pid.data[axis].F = -getRcDeflection(FD_YAW);
+
+    difFilterApply(&pid.btermFilter[axis], setpoint);
+    pid.data[axis].B = 0;
+
+    pid.data[axis].pidSum = pid.data[axis].P + pid.data[axis].D + pid.data[axis].F;
+}
+
+
 // Only yaw (steering) is stabilised. Roll and pitch keep their slots in the per-axis arrays
 // (MSP, Blackbox and the PID profile keep their layout) but always hold zero: no setpoint, no
 // output, nothing for the mixer.
@@ -951,7 +999,10 @@ void pidController(const pidProfile_t *pidProfile, timeUs_t currentTimeUs)
             pidApplyMode0(PID_YAW);
             break;
         default:
-            pidApplyMode1(PID_YAW);
+            if (mixerDriftActive())
+                pidApplyDrift(PID_YAW);
+            else
+                pidApplyMode1(PID_YAW);
             break;
     }
 

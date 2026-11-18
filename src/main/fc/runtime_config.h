@@ -144,10 +144,3 @@ uint32_t sensorsMask(void);
 
 void mwDisarm(void);
 
-/*
- * Gripora platform identifier.
- * Define WINGFLIGHT_AIRPLANE in the target's target.h (or via make EXTRA_FLAGS=-DWINGFLIGHT_AIRPLANE)
- * to enable fixed-wing-specific code paths. All wing additions should be guarded with this flag
- * to keep the diff small and upstream-merge-friendly.
- */
-// #define WINGFLIGHT_AIRPLANE

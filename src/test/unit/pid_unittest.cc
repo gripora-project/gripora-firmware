@@ -39,6 +39,7 @@ extern "C" {
 #include "common/maths.h"
 #include "flight/mixer.h"
 #include "pg/drive.h"
+#include "pg/drift.h"
 
 gpsSolutionData_t gpsSol;
 
@@ -55,6 +56,8 @@ bool isMotorProtocolDshot(void) { return false; }
 bool mixerSaturated(uint8_t) { return false; }
 bool stabilizationBypassed = false;
 bool mixerStabilizationBypassed(void) { return stabilizationBypassed; }
+bool driftActive = false;
+bool mixerDriftActive(void) { return driftActive; }
 uint8_t getCurrentPidProfileIndex(void) { return 0; }
 void changePidProfile(uint8_t) {}
 } // extern "C"
@@ -120,6 +123,7 @@ class PIDTestBase : public ::testing::Test {
         rpmActive = false;
         wheelRpm = 0;
         DISABLE_ARMING_FLAG(ARMED);
+        driftActive = false;
         g_mock = nullptr;
     }
     PIDIO getResponse(PIDIO &input)
@@ -607,4 +611,121 @@ TEST_F(PIDDriveTest, DirectionChangeWithoutRpmFadesCorrectionIn)
 
     hold(0, DRIVE_DIR_CHANGE_RAMP_S + 0.5f);
     EXPECT_NEAR(yaw().P, -full, fabsf(full) * 1e-3f);
+}
+
+
+//// DRIFT: steering wheel direct, the gyro only counter-steers (flight/pid.c)
+
+class PIDDriftTest : public PIDDriveTest {
+  public:
+    void SetUp() override
+    {
+        PIDDriveTest::SetUp();
+        mockPidProfile->pid_mode = 1;
+        mockPidProfile->pid[PID_YAW].P = 100;
+        mockPidProfile->pid[PID_YAW].I = 100;
+        mockPidProfile->pid[PID_YAW].D = 0;
+        mockPidProfile->pid[PID_YAW].F = 100;
+        mockPidProfile->pid[PID_YAW].B = 0;
+        pidInit(mockPidProfile);
+        // Moving forward with no RPM source: full correction once faded in
+        driveThrottle = 0.5f;
+        driftActive = true;
+    }
+    driftConfig_t *drift() { return driftConfigsMutable(0); }
+};
+
+TEST_F(PIDDriftTest, WheelGoesStraightThrough)
+// No rotation: the output is the steering wheel itself, with the GYRO OFF sign
+{
+    gyro.gyroADCf[PID_YAW] = 0;
+    hold(0.4f, 1.5f);
+    EXPECT_FLOAT_EQ(-0.4f, yaw().F);
+    EXPECT_FLOAT_EQ(0, yaw().P);
+    EXPECT_FLOAT_EQ(0, yaw().I);
+    EXPECT_FLOAT_EQ(-0.4f, yaw().pidSum);
+}
+
+TEST_F(PIDDriftTest, RotationWithinTheAllowanceIsLeftAlone)
+{
+    drift()->allow = 60;
+    gyro.gyroADCf[PID_YAW] = 50;
+    hold(0, 1.5f);
+    EXPECT_FLOAT_EQ(0, yaw().P);
+    gyro.gyroADCf[PID_YAW] = -50;
+    hold(0, 0.1f);
+    EXPECT_FLOAT_EQ(0, yaw().P);
+}
+
+TEST_F(PIDDriftTest, CounterSteersPastTheAllowance)
+// Same sign as the normal loop's P on a rotation, sized by drift_gain and the allowance
+{
+    drift()->allow = 30;
+    drift()->gain = 100;
+
+    gyro.gyroADCf[PID_YAW] = 30 + DRIFT_FULL_RATE / 4;
+    hold(0, 1.5f);
+    EXPECT_NEAR(-0.25f, yaw().P, 1e-4f);
+
+    gyro.gyroADCf[PID_YAW] = -(30 + DRIFT_FULL_RATE / 4);
+    hold(0, 0.1f);
+    EXPECT_NEAR(0.25f, yaw().P, 1e-4f);
+
+    // The normal loop corrects the same rotation the same way round
+    driftActive = false;
+    pidResetAxisError(PID_YAW);
+    hold(0, 0.1f);
+    EXPECT_GT(yaw().P, 0);
+}
+
+TEST_F(PIDDriftTest, CounterSteerIsLimited)
+{
+    drift()->allow = 0;
+    drift()->gain = 200;
+    drift()->limit = 40;
+    gyro.gyroADCf[PID_YAW] = 500;
+    hold(0, 1.5f);
+    EXPECT_NEAR(-0.4f, yaw().P, 1e-5f);
+}
+
+TEST_F(PIDDriftTest, NoItermAndACleanExit)
+// A sustained error in the normal loop builds I; DRIFT drops it and leaving starts from zero
+{
+    gyro.gyroADCf[PID_YAW] = 40;
+    driftActive = false;
+    hold(0, 1.5f);
+    EXPECT_NE(0, yaw().axisError);
+
+    driftActive = true;
+    hold(0, 0.01f);
+    EXPECT_FLOAT_EQ(0, yaw().axisError);
+    EXPECT_FLOAT_EQ(0, yaw().I);
+
+    driftActive = false;
+    gyro.gyroADCf[PID_YAW] = 0;
+    hold(0, 0.001f);
+    EXPECT_NEAR(0, yaw().I, 1e-3f);
+}
+
+TEST_F(PIDDriftTest, StandstillIsWheelOnly)
+// The drive state's correction scale applies: no counter-steer standing still
+{
+    rpmActive = true;
+    wheelRpm = 0;
+    drift()->allow = 0;
+    gyro.gyroADCf[PID_YAW] = 100;
+    hold(-0.3f, 0.5f);
+    EXPECT_FLOAT_EQ(0, yaw().P);
+    EXPECT_FLOAT_EQ(0.3f, yaw().pidSum);
+}
+
+TEST_F(PIDDriftTest, ConfigIsValidated)
+{
+    drift()->gain = 255;
+    drift()->allow = 5000;
+    drift()->limit = 0;
+    validateAndFixDriftConfig();
+    EXPECT_EQ(DRIFT_GAIN_MAX, drift()->gain);
+    EXPECT_EQ(DRIFT_ALLOW_MAX, drift()->allow);
+    EXPECT_EQ(DRIFT_LIMIT_MIN, drift()->limit);
 }

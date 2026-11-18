@@ -13,8 +13,9 @@ rebranded. The car conversion is in progress, so:
   modes) have been removed. Their mode, adjustment, PG, debug and MSP ids are kept as reserved so later ids don't
   move. Only yaw (steering) is stabilised; roll and pitch keep their slots in the per-axis arrays and PID/rate
   profiles but always hold zero. Throttle is signed, -1..1 around rc_center (brake/reverse below neutral).
-- Remaining aircraft concepts (control-surface mixer defaults, `WINGFLIGHT_AIRPLANE`) are due to be replaced by
-  car equivalents. Don't extend them; ask before deleting them.
+- The aircraft mixer concepts (control-surface presets, aircraft model types, the `WINGFLIGHT_AIRPLANE` marker)
+  have been removed; the model types are CAR and CUSTOM. Inherited comments and receiver-protocol channel names
+  may still say aileron/elevator; don't add new aircraft concepts.
 - Car features are added under `src/main/flight/` (the directory name is inherited) until a reorganisation is agreed.
 - WingFlight fixes can be pulled in from the `upstream` remote (`WingFlight/wingflight-firmware`); keep diffs to
   inherited code small to make that easy.
@@ -43,29 +44,16 @@ firmware over MSP and check that identifier, so MSP changes here affect all of t
 
 This section captures behavior already present in this repository, not roadmap items.
 
-### 1) Fixed-Wing Build Identity Is Explicit
+### 1) Car Build Identity
 
-- The macro `WINGFLIGHT_AIRPLANE` is enabled in common target configuration.
-- Runtime docs in code state this macro is the fork marker for fixed-wing paths.
+- There is no build-time fork marker: every build is the car firmware. The firmware identifies itself as
+  `Gripora` / `GRPA` over MSP.
 
-References:
+### 2) Mixer Defaults Are Car-Oriented
 
-- [src/main/target/common_pre.h](src/main/target/common_pre.h)
-- [src/main/fc/runtime_config.h](src/main/fc/runtime_config.h)
-
-### 2) Mixer Defaults Are Aircraft-Oriented
-
-Default mixer rules are a standard fixed-wing layout:
-
-- S1: left aileron from stabilized roll
-- S2: right aileron from stabilized roll (opposite sign)
-- S3: elevator from stabilized pitch
-- S4: rudder from stabilized yaw
-- M1: throttle from RC throttle command
-
-Also:
-
-- Stabilized collective input is kept at zero-rate by default (unused on wing aircraft).
+- `model_type` is CAR (default) or CUSTOM.
+- Default mixer rules: S1 steering servo from stabilized yaw (steering), M1 ESC from stabilized throttle (the
+  drive aids' output). Optional rear steering and a second ESC are set up by the Configurator's car preset.
 - Curve slots default to neutral passthrough lines.
 
 Reference: [src/main/pg/mixer.c](src/main/pg/mixer.c)
@@ -93,8 +81,12 @@ References:
   and D (never F/B) by `driveGetCorrectionScale()`: zero at a standstill, reduced in reverse, faded in after a
   direction change made without RPM. The yaw I-term is cleared on a direction change.
 - The drive aids ([src/main/flight/drive_aids.c](src/main/flight/drive_aids.c)) shape the throttle/brake command
-  in the mixer before failsafe: timed ABS and traction control (a throttle rise limit) for now. They only move the command towards neutral, never across it,
+  in the mixer before failsafe: timed ABS, traction control (a throttle rise limit) and launch control (the LAUNCH
+  mode stages a capped, ramped standing start). They only move the command towards neutral, never across it,
   and an ABS release never drops below 10 % brake (a brake-then-reverse ESC must not see neutral mid-brake).
+- DRIFT mode (`pidApplyDrift()` in [src/main/flight/pid.c](src/main/flight/pid.c), settings in
+  [src/main/pg/drift.h](src/main/pg/drift.h)): the steering wheel goes straight to the servo and the gyro only
+  counter-steers turn rate beyond `drift_allow`; no I-term. GYRO OFF and failsafe take precedence.
 
 References:
 
@@ -113,7 +105,8 @@ References:
 
 ## Guidance for Future Agents
 
-When implementing features or reviewing PRs, assume fixed-wing-first behavior unless explicitly documented otherwise.
+When implementing features or reviewing PRs, assume car behaviour: one stabilised axis (steering), a signed
+throttle with brake/reverse below neutral, and reversible ESCs.
 
 ### Keep Stable Interfaces Stable
 
@@ -138,7 +131,7 @@ Parameter groups are the exception: bump the PG version (last argument of `PG_RE
 
 ### Document Behavior, Not Only Intent
 
-- For new wing-specific behavior, add concise notes to release docs and point to exact source files.
+- For new car behaviour, add concise notes to [Changes.md](Changes.md) and point to exact source files.
 - If a setting is renamed, keep aliases where practical and record it in [Changes.md](Changes.md).
 
 ## Where Documentation Lives

@@ -408,6 +408,7 @@ pid_unittest_SRC :=  \
 		$(USER_DIR)/flight/speed_atten.c \
 		$(USER_DIR)/pg/drive.c \
 		$(USER_DIR)/pg/drive_aids.c \
+		$(USER_DIR)/pg/drift.c \
 		$(USER_DIR)/pg/pid.c \
 		$(USER_DIR)/pg/pg.c \
 		$(USER_DIR)/common/crc.c \
