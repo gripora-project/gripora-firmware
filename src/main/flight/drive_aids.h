@@ -40,6 +40,8 @@
 #define DRIVE_AIDS_FLAG_ABS_ACTIVE  (1 << 2)    // ABS releasing the brake right now
 #define DRIVE_AIDS_FLAG_TC_ARMED    (1 << 3)    // Traction control set up and driving forward
 #define DRIVE_AIDS_FLAG_TC_ACTIVE   (1 << 4)    // Traction control holding the throttle back right now
+#define DRIVE_AIDS_FLAG_LC_STAGED   (1 << 5)    // Launch control staged: the next forward throttle launches
+#define DRIVE_AIDS_FLAG_LC_ACTIVE   (1 << 6)    // Launch control launching: the throttle follows the launch ramp
 
 void driveAidsReset(void);
 
@@ -48,9 +50,10 @@ void driveAidsReset(void);
 // steering and the drive state itself; driveAidsApplyFrom() takes them so the logic can be unit
 // tested. steer is the steering deflection, -1..1; braking is true while the ESC brakes a car
 // that is still rolling (flight/drive.c); above neutral that is a brake from reverse, which
-// traction control leaves alone.
+// traction control and launch control leave alone. launch is true while the LAUNCH mode is
+// active.
 float driveAidsApply(float throttle, float dT);
-float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking, float dT);
+float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking, bool launch, float dT);
 
 uint8_t driveAidsGetFlags(void);
 float driveAidsGetThrottleIn(void);

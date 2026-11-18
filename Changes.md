@@ -11,6 +11,37 @@ Gripora's MSP protocol is its own from here: the API version is 33.0
 unchanged. Everything listed under the Gripora sections below is part of
 API 33.0; clients accept 33.x only.
 
+## Drive aids: launch control
+
+Launch control joins ABS and traction control in the drive aids
+(`src/main/flight/drive_aids.c`).
+
+- New mode `LAUNCH` (permanent id 67). With `drive_lc_mode` `SWITCH`, turning
+  `LAUNCH` on while the throttle is at neutral or braking stages a launch. The
+  first forward throttle starts it: at most `drive_lc_throttle` % (50, 10..100)
+  at once, rising to full over `drive_lc_ramp_time` (1000 ms, 100..5000).
+- The launch ends at the end of the ramp, when the driver lets off to neutral
+  or brakes, or when `LAUNCH` goes off. It runs once per `LAUNCH` activation:
+  lifting mid-run never caps the throttle again; turn `LAUNCH` off and on for
+  the next one. Turning `LAUNCH` on with the throttle forward stages nothing.
+  Arming with `LAUNCH` on stages a launch.
+- While staged, the brake and ABS work as usual. A brake from reverse never
+  starts a launch. Traction control stands aside during the launch and carries
+  on from the throttle the launch reached, so there is no cut.
+- Per PID profile, OFF by default; `PG_DRIVE_AIDS_CONFIG` now v2 (the drive
+  aids reset on upgrade). New Blackbox header `drive_lc` (mode, throttle, ramp
+  time). Debug `DRIVE_AIDS` slot 3 shows the launch throttle (x1000) while
+  launching.
+
+MSP, upcoming API version:
+
+- `MSP2_GRIPORA_DRIVE_AIDS_CONFIG` reply appends `U8` lc mode (0 OFF,
+  1 SWITCH), `U8` lc throttle (%) and `U16` lc ramp time (ms): 16 bytes. `SET`
+  takes them when the request is at least 16 bytes; shorter requests leave them
+  unchanged.
+- `MSP2_GRIPORA_DRIVE_AIDS_STATUS` flags: bit 5 launch staged, bit 6
+  launching.
+
 ## Speed attenuation top speed for a car
 
 `fw_spa_speed_max`, the speed at the right edge of the speed attenuation

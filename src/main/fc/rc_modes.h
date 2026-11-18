@@ -80,6 +80,7 @@ typedef enum {
     BOXTVHOLD,          // reserved (removed) -- kept to avoid renumbering later ids
     BOXTRADITIONAL,     // reserved (removed) -- kept to avoid renumbering later ids
     BOXDRIVEAIDSOFF,    // DRIVE AIDS OFF: the throttle/brake command passes through unshaped (flight/drive_aids.c)
+    BOXLAUNCH,          // LAUNCH: stages a launch for launch control (flight/drive_aids.c)
 
     CHECKBOX_ITEM_COUNT,
 
