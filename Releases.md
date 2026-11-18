@@ -1,3 +1,12 @@
+# 0.0.4
+
+Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites (MSP API 33.0). Updating resets the telemetry sensor selection to the new default; everything else is kept.
+New telemetry for the car: Drive Status (the drive aids at work, GYRO OFF, DRIFT, LAUNCH, DRIVE AIDS OFF, reversing) and Wheel Speed (km/h from motor RPM, negative in reverse), sent on the ids of the removed heli governor sensors. They replace altitude and variometer in the default sensor list.
+The Ethos suite dashboards use them: a drive aids tile in place of the governor, a car tilt view in place of the artificial horizon, and Top Speed in place of Altitude Max. The radio's flight mode text also shows DRIFT, LAUNCH and AIDS OFF.
+F4WING_MINI (FlyingRC F4Wing Mini MK1): the board config now maps the outputs to the real pads (servos on S1-S4, ESCs on S5/S6, LED strip on S12). The old config put the ESC on a pin that reaches no pad. Apply the board config again when flashing.
+
+***
+
 # 0.0.3
 
 Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites (MSP API 33.0). Updating resets the speed attenuation settings (fw_spa_*) in every profile; the new drive aids and drift settings start at their defaults, everything else is kept.
