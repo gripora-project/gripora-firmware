@@ -1,3 +1,14 @@
+# 0.0.3
+
+Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites (MSP API 33.0). Updating resets the speed attenuation settings (fw_spa_*) in every profile; the new drive aids and drift settings start at their defaults, everything else is kept.
+New drive aids, set per PID profile on the Configurator's Profiles tab and all off by default: timed ABS (drive_abs_*) pulses the brake when you brake hard; traction control (drive_tc_*) limits how fast the forward throttle may rise; launch control (drive_lc_*) caps the throttle for a standing start, staged with the new LAUNCH mode and ramped to full. The new DRIVE AIDS OFF mode turns them all off from a switch.
+New DRIFT mode: the steering wheel goes straight to the servo and the gyro only counter-steers rotation past an allowed turn rate, so the car can hold a slip angle and is caught when it over-rotates (drift_gain, drift_allow, drift_limit, per profile). GYRO OFF and failsafe take precedence.
+The speed attenuation range is sized for a car: fw_spa_speed_max defaults to 60 km/h (10 to 300).
+The remaining aircraft code is gone; the Configurator's Status tab shows car readouts and the setup wizard handles steering servos only.
+F4WING_MINI boards: the board config no longer turns on the RPM filter, which blocked arming on a PWM ESC without RPM. A board already set up keeps it until you run feature -RPM_FILTER and save, or apply the board config again.
+
+***
+
 # 0.0.2
 
 Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites: MSP API 33.0. Gripora's protocol is now its own (WingFlight stays on 22.x), and the Gripora MSP2 messages are named MSP2_GRIPORA_*. Configurators and suites for 0.0.1 can't connect to 0.0.2, and the other way round.
