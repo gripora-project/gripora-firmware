@@ -28,7 +28,7 @@
 #include "pg/pg_ids.h"
 #include "pg/drive_aids.h"
 
-PG_REGISTER_ARRAY_WITH_RESET_FN(driveAidsConfig_t, PID_PROFILE_COUNT, driveAidsConfigs, PG_DRIVE_AIDS_CONFIG, 1);
+PG_REGISTER_ARRAY_WITH_RESET_FN(driveAidsConfig_t, PID_PROFILE_COUNT, driveAidsConfigs, PG_DRIVE_AIDS_CONFIG, 2);
 
 void resetDriveAidsConfig(driveAidsConfig_t *config)
 {
@@ -44,6 +44,9 @@ void resetDriveAidsConfig(driveAidsConfig_t *config)
         .abs_corner_hold = 0,
         .tc_mode = DRIVE_TC_OFF,
         .tc_ramp_time = 500,
+        .lc_mode = DRIVE_LC_OFF,
+        .lc_throttle = 50,
+        .lc_ramp_time = 1000,
     );
 }
 
@@ -72,6 +75,12 @@ static void validateAndFixDriveAidsProfile(driveAidsConfig_t *config)
         config->tc_mode = DRIVE_TC_OFF;
 
     config->tc_ramp_time = constrain(config->tc_ramp_time, DRIVE_TC_RAMP_TIME_MIN, DRIVE_TC_RAMP_TIME_MAX);
+
+    if (config->lc_mode >= DRIVE_LC_MODE_COUNT)
+        config->lc_mode = DRIVE_LC_OFF;
+
+    config->lc_throttle = constrain(config->lc_throttle, DRIVE_LC_THROTTLE_MIN, DRIVE_LC_THROTTLE_MAX);
+    config->lc_ramp_time = constrain(config->lc_ramp_time, DRIVE_LC_RAMP_TIME_MIN, DRIVE_LC_RAMP_TIME_MAX);
 }
 
 void validateAndFixDriveAidsConfig(void)

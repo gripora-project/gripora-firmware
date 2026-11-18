@@ -23,7 +23,7 @@
 #include "pg/pg.h"
 #include "pg/pid.h"
 
-// Drive aids (flight/drive_aids.c): ABS and traction control; speed-based steering will
+// Drive aids (flight/drive_aids.c): ABS, traction control and launch control; speed-based steering will
 // follow in this group. One set per PID profile, so a profile switch changes the aids
 // with the tune (a track or surface preset).
 
@@ -51,6 +51,17 @@ typedef enum {
 #define DRIVE_TC_RAMP_TIME_MIN          50      // ms, zero to full throttle
 #define DRIVE_TC_RAMP_TIME_MAX          2000    // ms
 
+typedef enum {
+    DRIVE_LC_OFF = 0,
+    DRIVE_LC_SWITCH,        // The LAUNCH mode stages a launch; the first forward throttle starts it
+    DRIVE_LC_MODE_COUNT
+} driveLcMode_e;
+
+#define DRIVE_LC_THROTTLE_MIN           10      // %, throttle allowed at the start of a launch
+#define DRIVE_LC_THROTTLE_MAX           100     // %
+#define DRIVE_LC_RAMP_TIME_MIN          100     // ms, from lc_throttle to full
+#define DRIVE_LC_RAMP_TIME_MAX          5000    // ms
+
 typedef struct driveAidsConfig_s {
     uint8_t  abs_mode;              // driveAbsMode_e
     uint8_t  abs_freq;              // Pulse rate, Hz
@@ -63,6 +74,9 @@ typedef struct driveAidsConfig_s {
     uint8_t  abs_corner_hold;       // Hold at full steering lock, ms (0 = off)
     uint8_t  tc_mode;               // driveTcMode_e
     uint16_t tc_ramp_time;          // RAMP: zero to full forward throttle, ms
+    uint8_t  lc_mode;               // driveLcMode_e
+    uint8_t  lc_throttle;           // Forward throttle allowed as a launch starts, %
+    uint16_t lc_ramp_time;          // From lc_throttle to full throttle, ms
 } driveAidsConfig_t;
 
 PG_DECLARE_ARRAY(driveAidsConfig_t, PID_PROFILE_COUNT, driveAidsConfigs);

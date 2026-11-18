@@ -67,14 +67,14 @@ protected:
         config->abs_trigger = trigger;
     }
 
-    void run(float throttle, float seconds, float steer = 0, bool braking = true, bool enabled = true)
+    void run(float throttle, float seconds, float steer = 0, bool braking = true, bool enabled = true, bool launch = false)
     {
         minOut = 2;
         maxOut = -2;
         releasedTime = 0;
         const int n = lrintf(seconds / DT);
         for (int i = 0; i < n; i++) {
-            const float out = driveAidsApplyFrom(enabled, throttle, steer, braking, DT);
+            const float out = driveAidsApplyFrom(enabled, throttle, steer, braking, launch, DT);
             minOut = fminf(minOut, out);
             maxOut = fmaxf(maxOut, out);
             if (fabsf(out) < fabsf(throttle) - 1e-4f)
@@ -212,7 +212,7 @@ TEST_F(DriveAidsTest, DynamicMovesRateAndFloorWithDepth)
     int releases = 0;
     bool released = false;
     for (int i = 0; i < 1000; i++) {
-        const float out = driveAidsApplyFrom(true, -1.0f, 0, true, DT);
+        const float out = driveAidsApplyFrom(true, -1.0f, 0, true, false, DT);
         const bool now = out > -0.99f;
         if (now && !released)
             releases++;
@@ -343,6 +343,132 @@ TEST_F(DriveAidsTest, TurningAidsOnWithTheTriggerHeldDoesNotCut)
     EXPECT_FLOAT_EQ(1.0f, minOut);
 }
 
+// Launch control: run(throttle, seconds, steer, braking, enabled, launch)
+static const bool LAUNCH = true;
+
+TEST_F(DriveAidsTest, LaunchControlOffByDefault)
+{
+    EXPECT_EQ(DRIVE_LC_OFF, config->lc_mode);
+
+    run(0, 0.1f, 0, false, true, LAUNCH);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+    run(1.0f, 0.01f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+}
+
+TEST_F(DriveAidsTest, LaunchFollowsTheRamp)
+{
+    config->lc_mode = DRIVE_LC_SWITCH;
+    config->lc_throttle = 50;
+    config->lc_ramp_time = 1000;
+
+    // On the line on the brake with LAUNCH on: staged, the brake passes through
+    run(-0.5f, 0.1f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(-0.5f, minOut);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+
+    // Full throttle: 50 % at once, 75 % half way, then full
+    run(1.0f, 0.001f, 0, false, true, LAUNCH);
+    EXPECT_NEAR(0.5f, maxOut, 0.002f);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_ACTIVE);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+
+    run(1.0f, 0.499f, 0, false, true, LAUNCH);
+    EXPECT_NEAR(0.75f, maxOut, 0.002f);
+
+    run(1.0f, 0.51f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, maxOut);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_ACTIVE);
+
+    // A small command below the limit passes at once
+    driveAidsReset();
+    run(0, 0.01f, 0, false, true, LAUNCH);
+    run(0.3f, 0.01f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(0.3f, minOut);
+}
+
+TEST_F(DriveAidsTest, LaunchRunsOncePerActivation)
+{
+    config->lc_mode = DRIVE_LC_SWITCH;
+
+    run(0, 0.1f, 0, false, true, LAUNCH);
+    run(1.0f, 0.2f, 0, false, true, LAUNCH);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_ACTIVE);
+
+    // Letting off ends it; back on the throttle is not capped again
+    run(0, 0.1f, 0, false, true, LAUNCH);
+    run(1.0f, 0.01f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+    EXPECT_FALSE(driveAidsGetFlags() & (DRIVE_AIDS_FLAG_LC_ACTIVE | DRIVE_AIDS_FLAG_LC_STAGED));
+
+    // LAUNCH off and on at neutral stages the next one
+    run(0, 0.01f, 0, false, true, false);
+    run(0, 0.01f, 0, false, true, LAUNCH);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+}
+
+TEST_F(DriveAidsTest, LaunchSwitchedOnWhileDrivingStagesNothing)
+{
+    config->lc_mode = DRIVE_LC_SWITCH;
+
+    run(1.0f, 0.1f, 0, false, true, false);
+    run(1.0f, 0.1f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+
+    // Still nothing after a lift with LAUNCH left on
+    run(0, 0.1f, 0, false, true, LAUNCH);
+    run(1.0f, 0.01f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+}
+
+TEST_F(DriveAidsTest, LaunchLeavesABrakeFromReverseAndABSAlone)
+{
+    config->lc_mode = DRIVE_LC_SWITCH;
+    useAbs(DRIVE_ABS_STATIC, 10, 40, 0, 30);
+
+    // Staged while still rolling on the brake: ABS keeps pulsing
+    run(-1.0f, 0.5f, 0, true, true, LAUNCH);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+    EXPECT_GT(releasedTime, 0.1f);
+
+    // Above neutral while the ESC brakes a car rolling backwards: no launch
+    run(1.0f, 0.1f, 0, true, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+}
+
+TEST_F(DriveAidsTest, TractionControlTakesOverAfterALaunch)
+{
+    config->lc_mode = DRIVE_LC_SWITCH;
+    config->lc_throttle = 50;
+    config->lc_ramp_time = 1000;
+    config->tc_mode = DRIVE_TC_RAMP;
+    config->tc_ramp_time = 2000;
+
+    // Traction control stands aside during the launch: its own ramp would be at 5 % here
+    run(0, 0.01f, 0, false, true, LAUNCH);
+    run(1.0f, 0.1f, 0, false, true, LAUNCH);
+    EXPECT_NEAR(0.55f, maxOut, 0.002f);
+
+    // At the end of the launch ramp traction control carries on at full, without a cut
+    run(1.0f, 0.95f, 0, false, true, LAUNCH);
+    EXPECT_GE(minOut, 0.55f);
+    EXPECT_FLOAT_EQ(1.0f, maxOut);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_ACTIVE);
+    run(1.0f, 0.1f, 0, false, true, LAUNCH);
+    EXPECT_FLOAT_EQ(1.0f, minOut);
+}
+
+TEST_F(DriveAidsTest, LaunchStagesWhenArmedWithLaunchOn)
+{
+    config->lc_mode = DRIVE_LC_SWITCH;
+
+    run(0, 0.1f, 0, false, false, LAUNCH);
+    EXPECT_FALSE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+    run(0, 0.01f, 0, false, true, LAUNCH);
+    EXPECT_TRUE(driveAidsGetFlags() & DRIVE_AIDS_FLAG_LC_STAGED);
+}
+
 TEST_F(DriveAidsTest, ConfigIsValidated)
 {
     config->abs_mode = 7;
@@ -352,12 +478,18 @@ TEST_F(DriveAidsTest, ConfigIsValidated)
     config->abs_corner_freq = 50;
     config->tc_mode = 9;
     config->tc_ramp_time = 5;
+    config->lc_mode = 4;
+    config->lc_throttle = 0;
+    config->lc_ramp_time = 9000;
     driveAidsConfigsMutable(PID_PROFILE_COUNT - 1)->abs_freq = 99;
     validateAndFixDriveAidsConfig();
 
     EXPECT_EQ(DRIVE_ABS_FREQ_MAX, driveAidsConfigs(PID_PROFILE_COUNT - 1)->abs_freq);
     EXPECT_EQ(DRIVE_TC_OFF, config->tc_mode);
     EXPECT_EQ(DRIVE_TC_RAMP_TIME_MIN, config->tc_ramp_time);
+    EXPECT_EQ(DRIVE_LC_OFF, config->lc_mode);
+    EXPECT_EQ(DRIVE_LC_THROTTLE_MIN, config->lc_throttle);
+    EXPECT_EQ(DRIVE_LC_RAMP_TIME_MAX, config->lc_ramp_time);
 
     EXPECT_EQ(DRIVE_ABS_OFF, config->abs_mode);
     EXPECT_EQ(DRIVE_ABS_FREQ_MIN, config->abs_freq);

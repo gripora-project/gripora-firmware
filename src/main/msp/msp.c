@@ -1271,6 +1271,9 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_hold);
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->tc_mode);
         sbufWriteU16(dst, driveAidsConfigs(getCurrentPidProfileIndex())->tc_ramp_time);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->lc_mode);
+        sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->lc_throttle);
+        sbufWriteU16(dst, driveAidsConfigs(getCurrentPidProfileIndex())->lc_ramp_time);
         break;
 
     case MSP2_GRIPORA_DRIVE_AIDS_STATUS:
@@ -3386,6 +3389,11 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         const bool haveTc = (dataSize >= 12);
         const uint8_t tcMode = haveTc ? sbufReadU8(src) : DRIVE_TC_OFF;
         const uint16_t tcRampTime = haveTc ? sbufReadU16(src) : DRIVE_TC_RAMP_TIME_MIN;
+        // Launch control: optional, all of its fields or none
+        const bool haveLc = (dataSize >= 16);
+        const uint8_t lcMode = haveLc ? sbufReadU8(src) : DRIVE_LC_OFF;
+        const uint8_t lcThrottle = haveLc ? sbufReadU8(src) : DRIVE_LC_THROTTLE_MIN;
+        const uint16_t lcRampTime = haveLc ? sbufReadU16(src) : DRIVE_LC_RAMP_TIME_MIN;
         if (absMode >= DRIVE_ABS_MODE_COUNT ||
             absFreq < DRIVE_ABS_FREQ_MIN || absFreq > DRIVE_ABS_FREQ_MAX ||
             absFloor > DRIVE_ABS_FLOOR_MAX ||
@@ -3396,7 +3404,10 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
             absCornerFreq > DRIVE_ABS_CORNER_FREQ_MAX ||
             absCornerHold > DRIVE_ABS_HOLD_MAX ||
             tcMode >= DRIVE_TC_MODE_COUNT ||
-            tcRampTime < DRIVE_TC_RAMP_TIME_MIN || tcRampTime > DRIVE_TC_RAMP_TIME_MAX) {
+            tcRampTime < DRIVE_TC_RAMP_TIME_MIN || tcRampTime > DRIVE_TC_RAMP_TIME_MAX ||
+            lcMode >= DRIVE_LC_MODE_COUNT ||
+            lcThrottle < DRIVE_LC_THROTTLE_MIN || lcThrottle > DRIVE_LC_THROTTLE_MAX ||
+            lcRampTime < DRIVE_LC_RAMP_TIME_MIN || lcRampTime > DRIVE_LC_RAMP_TIME_MAX) {
             return MSP_RESULT_ERROR;
         }
         driveAidsConfigsMutable(getCurrentPidProfileIndex())->abs_mode = absMode;
@@ -3411,6 +3422,11 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         if (haveTc) {
             driveAidsConfigsMutable(getCurrentPidProfileIndex())->tc_mode = tcMode;
             driveAidsConfigsMutable(getCurrentPidProfileIndex())->tc_ramp_time = tcRampTime;
+        }
+        if (haveLc) {
+            driveAidsConfigsMutable(getCurrentPidProfileIndex())->lc_mode = lcMode;
+            driveAidsConfigsMutable(getCurrentPidProfileIndex())->lc_throttle = lcThrottle;
+            driveAidsConfigsMutable(getCurrentPidProfileIndex())->lc_ramp_time = lcRampTime;
         }
         break;
     }

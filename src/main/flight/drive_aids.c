@@ -44,6 +44,15 @@
 // control or the aids are off, the limit follows the command, so turning it on with the trigger
 // held never cuts the throttle.
 //
+// Launch control (SWITCH): turning the LAUNCH mode on, while the throttle is not forward, stages
+// a launch. The first forward throttle after that starts it: the throttle may be at most
+// lc_throttle % at once, and the limit rises to full over lc_ramp_time. Letting off to neutral or
+// braking ends the launch, as does the end of the ramp. A launch runs once per LAUNCH activation,
+// so lifting in the middle of a run never caps the throttle again; turn the mode off and on to
+// stage the next one. Turning the mode on with the throttle forward stages nothing. While staged
+// or launching, traction control stands aside; after the launch it carries on from the throttle
+// the launch reached, so the handover never cuts it.
+//
 // The settings are per PID profile (the current one is used).
 //
 // Both use the pilot's inputs and time only. Sensor-based modes (wheel slip from the motor RPM
@@ -79,7 +88,18 @@ typedef struct {
 
     float absPhase;             // Seconds into the current ABS cycle
     float tcLimit;              // Forward throttle traction control allows now, 0..1
+
+    uint8_t lcState;            // driveLcState_e
+    bool lcWasOn;               // Launch control on (set up, aids on, LAUNCH active) last loop
+    float lcTime;               // Seconds into the launch
 } driveAidsState_t;
+
+typedef enum {
+    LC_IDLE = 0,                // Not staged (launch control off, or LAUNCH not active)
+    LC_STAGED,                  // Waiting for the first forward throttle
+    LC_LAUNCHING,               // Following the launch ramp
+    LC_DONE,                    // This LAUNCH activation is used up
+} driveLcState_e;
 
 static FAST_DATA_ZERO_INIT driveAidsState_t aids;
 
@@ -88,6 +108,63 @@ void driveAidsReset(void)
     aids.absPhase = 0;
     aids.tcLimit = 0;
     aids.flags = 0;
+    aids.lcState = LC_IDLE;
+    aids.lcWasOn = false;
+    aids.lcTime = 0;
+}
+
+// Launch control on the throttle command (-1..1). Returns true and sets *out while a launch is
+// shaping the forward throttle.
+static bool driveLcApply(float throttle, bool braking, bool launch, float dT, float *out)
+{
+    const driveAidsConfig_t *config = driveAidsConfigs(getCurrentPidProfileIndex());
+    const bool on = launch && config->lc_mode != DRIVE_LC_OFF;
+
+    if (!on) {
+        aids.lcState = LC_IDLE;
+    }
+    else if (!aids.lcWasOn) {
+        // Turned on: stage only from neutral or a brake, never in the middle of a run
+        aids.lcState = (throttle <= 0) ? LC_STAGED : LC_DONE;
+        aids.lcTime = 0;
+    }
+    aids.lcWasOn = on;
+
+    // A forward command while the ESC brakes a car rolling backwards is a brake, not a launch
+    if (aids.lcState == LC_STAGED && throttle > 0 && !braking) {
+        aids.lcState = LC_LAUNCHING;
+        aids.lcTime = 0;
+    }
+
+    if (aids.lcState == LC_LAUNCHING) {
+        if (throttle <= 0 || braking) {
+            aids.lcState = LC_DONE;
+            return false;
+        }
+
+        aids.lcTime += dT;
+
+        const float start = config->lc_throttle * 0.01f;
+        const float rampTime = MAX(config->lc_ramp_time, DRIVE_LC_RAMP_TIME_MIN) * 0.001f;
+        const float limit = start + (1.0f - start) * aids.lcTime / rampTime;
+
+        if (limit >= 1.0f) {
+            aids.lcState = LC_DONE;
+            return false;
+        }
+
+        *out = fminf(throttle, limit);
+
+        aids.flags |= DRIVE_AIDS_FLAG_LC_ACTIVE;
+        DEBUG(DRIVE_AIDS, 3, lrintf(*out * 1000));
+        return true;
+    }
+
+    // Staged: the brake (and ABS) and a brake from reverse work as usual until the launch
+    if (aids.lcState == LC_STAGED)
+        aids.flags |= DRIVE_AIDS_FLAG_LC_STAGED;
+
+    return false;
 }
 
 // Traction control on a forward command (0..1). Returns the command to send.
@@ -185,7 +262,7 @@ static float driveAbsApply(float brake, float steer, bool braking, float dT)
     return released;
 }
 
-float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking, float dT)
+float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking, bool launch, float dT)
 {
     aids.throttleIn = throttle;
     aids.flags = 0;
@@ -199,8 +276,17 @@ float driveAidsApplyFrom(bool enabled, float throttle, float steer, bool braking
     else {
         aids.flags |= DRIVE_AIDS_FLAG_ENABLED;
 
+        float launchOut;
+
+        // Launch control owns the forward throttle while launching; traction control carries on
+        // from where it leaves the throttle
+        if (driveLcApply(throttle, braking, launch, dT, &launchOut)) {
+            out = launchOut;
+            aids.tcLimit = fmaxf(out, 0);
+            aids.absPhase = 0;
+        }
         // Brake is below neutral. Above it ABS has nothing to do, and its cycle restarts.
-        if (throttle < 0) {
+        else if (throttle < 0) {
             out = -driveAbsApply(-throttle, steer, braking, dT);
             aids.tcLimit = 0;
         }
@@ -228,7 +314,7 @@ float driveAidsApply(float throttle, float dT)
     // show it stopped
     const bool braking = (driveGetEscState() == DRIVE_STATE_BRAKE) && !driveIsStopped();
 
-    return driveAidsApplyFrom(enabled, throttle, getRcDeflection(FD_YAW), braking, dT);
+    return driveAidsApplyFrom(enabled, throttle, getRcDeflection(FD_YAW), braking, IS_RC_MODE_ACTIVE(BOXLAUNCH), dT);
 }
 
 uint8_t driveAidsGetFlags(void)

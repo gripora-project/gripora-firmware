@@ -1701,6 +1701,9 @@ static bool blackboxWriteSysinfo(void)
                                                                             driveAidsConfigs(getCurrentPidProfileIndex())->abs_corner_hold);
         BLACKBOX_PRINT_HEADER_LINE("drive_tc", "%d,%d",                     driveAidsConfigs(getCurrentPidProfileIndex())->tc_mode,
                                                                             driveAidsConfigs(getCurrentPidProfileIndex())->tc_ramp_time);
+        BLACKBOX_PRINT_HEADER_LINE("drive_lc", "%d,%d,%d",                  driveAidsConfigs(getCurrentPidProfileIndex())->lc_mode,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->lc_throttle,
+                                                                            driveAidsConfigs(getCurrentPidProfileIndex())->lc_ramp_time);
         BLACKBOX_PRINT_HEADER_ARRAY("master_gain", "%d", 3,                 currentPidProfile->master_gain);
         BLACKBOX_PRINT_HEADER_ARRAY("gain_curve", "%d", 3,                  currentPidProfile->gain_curve);
         // One line per curve; add lines here if GAIN_CURVE_COUNT grows
