@@ -57,6 +57,8 @@ int getAdjustmentsRangeValue(void) { return -34; }
 void legacySensorInit(void) {}
 bool isModeActivationConditionPresent(boxId_e) { return false; }
 bool IS_RC_MODE_ACTIVE(boxId_e) { return false; }
+bool mixerDriftActive(void) { return false; }
+uint8_t driveAidsGetFlags(void) { return 0; }
 timeUs_t micros(void) { return 0; }
 void serialWrite(serialPort_t *, uint8_t) {}
 uint32_t serialRxBytesWaiting(const serialPort_t *) { return 0; }
