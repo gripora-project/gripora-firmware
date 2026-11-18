@@ -132,6 +132,7 @@
 #include "pg/srxl2_esc.h"
 #include "pg/drive.h"
 #include "pg/drive_aids.h"
+#include "pg/drift.h"
 #endif
 
 #include "rx/rx.h"
@@ -1274,6 +1275,12 @@ static bool mspProcessOutCommand(int16_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->lc_mode);
         sbufWriteU8(dst, driveAidsConfigs(getCurrentPidProfileIndex())->lc_throttle);
         sbufWriteU16(dst, driveAidsConfigs(getCurrentPidProfileIndex())->lc_ramp_time);
+        break;
+
+    case MSP2_GRIPORA_DRIFT_CONFIG:
+        sbufWriteU8(dst, driftConfigs(getCurrentPidProfileIndex())->gain);
+        sbufWriteU16(dst, driftConfigs(getCurrentPidProfileIndex())->allow);
+        sbufWriteU8(dst, driftConfigs(getCurrentPidProfileIndex())->limit);
         break;
 
     case MSP2_GRIPORA_DRIVE_AIDS_STATUS:
@@ -3431,6 +3438,24 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         break;
     }
 
+    case MSP2_GRIPORA_SET_DRIFT_CONFIG: {
+        // All fields are checked before any is applied, so a refused request changes nothing
+        if (dataSize < 4) {
+            return MSP_RESULT_ERROR;
+        }
+        const uint8_t gain = sbufReadU8(src);
+        const uint16_t allow = sbufReadU16(src);
+        const uint8_t limit = sbufReadU8(src);
+        if (gain > DRIFT_GAIN_MAX || allow > DRIFT_ALLOW_MAX ||
+            limit < DRIFT_LIMIT_MIN || limit > DRIFT_LIMIT_MAX) {
+            return MSP_RESULT_ERROR;
+        }
+        driftConfigsMutable(getCurrentPidProfileIndex())->gain = gain;
+        driftConfigsMutable(getCurrentPidProfileIndex())->allow = allow;
+        driftConfigsMutable(getCurrentPidProfileIndex())->limit = limit;
+        break;
+    }
+
     case MSP_SET_SERVO_CENTER:
         // payload: U8 idx + U16 mid  => 3 bytes
         if (dataSize != 1 + 2) {
@@ -3455,6 +3480,7 @@ static mspResult_e mspProcessInCommand(mspDescriptor_t srcDesc, int16_t cmdMSP, 
         resetPidProfile(currentPidProfile);
         resetFwSpaConfig(fwSpaConfigsMutable(getCurrentPidProfileIndex()));
         resetDriveAidsConfig(driveAidsConfigsMutable(getCurrentPidProfileIndex()));
+        resetDriftConfig(driftConfigsMutable(getCurrentPidProfileIndex()));
         break;
 
     case MSP_SET_SENSOR_ALIGNMENT:

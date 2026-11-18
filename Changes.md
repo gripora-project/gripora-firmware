@@ -11,6 +11,36 @@ Gripora's MSP protocol is its own from here: the API version is 33.0
 unchanged. Everything listed under the Gripora sections below is part of
 API 33.0; clients accept 33.x only.
 
+## Drift mode
+
+New mode `DRIFT` (permanent id 68) for drifting (`pidApplyDrift()` in
+`src/main/flight/pid.c`).
+
+- While `DRIFT` is on, the steering wheel goes straight to the steering servo,
+  as with GYRO OFF, so the driver sets the wheel angle. The gyro adds
+  counter-steer against the turn rate beyond `drift_allow` (30 deg/s, 0..720),
+  which lets the car hold a slip angle and catches it when it over-rotates.
+  `drift_gain` (100 %, 0..200) gives full counter-lock at 360 deg/s past the
+  allowance; the counter-steer never exceeds `drift_limit` (100 % of full
+  lock, 10..100). The D-term damps as in the normal loop. There is no I-term
+  (no heading hold): it is held at zero, so leaving DRIFT starts clean.
+- The throttle/speed attenuation and the drive state's correction scale
+  (standstill, reverse, direction change) apply as they do normally. GYRO OFF
+  and failsafe take precedence over DRIFT.
+- Settings are per PID profile, in the new `PG_DRIFT_CONFIG` (1030); profile
+  copy and reset include them. Blackbox header `drift` (gain, allow, limit).
+
+MSP, upcoming API version:
+
+- New `MSP2_GRIPORA_DRIFT_CONFIG` (0x5F42) / `MSP2_GRIPORA_SET_DRIFT_CONFIG`
+  (0x5F43), current PID profile: `U8` gain %, `U16` allowed turn rate deg/s,
+  `U8` counter-steer limit %. SET refuses any out-of-range value.
+
+## Aircraft marker removed
+
+`WINGFLIGHT_AIRPLANE` is gone from `common_pre.h` and `runtime_config.h`. No
+code tested it.
+
 ## Drive aids: launch control
 
 Launch control joins ABS and traction control in the drive aids

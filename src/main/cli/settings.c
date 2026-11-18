@@ -80,6 +80,7 @@
 #include "pg/position.h"
 #include "pg/drive.h"
 #include "pg/drive_aids.h"
+#include "pg/drift.h"
 #include "pg/rx.h"
 #include "pg/rx_pwm.h"
 #include "pg/rx_spi.h"
@@ -999,6 +1000,11 @@ const clivalue_t valueTable[] = {
     { "drive_lc_mode",               VAR_UINT8  | PROFILE_VALUE | MODE_LOOKUP, .config.lookup = { TABLE_DRIVE_LC_MODE }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, lc_mode) },
     { "drive_lc_throttle",           VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { DRIVE_LC_THROTTLE_MIN, DRIVE_LC_THROTTLE_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, lc_throttle) },
     { "drive_lc_ramp_time",          VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { DRIVE_LC_RAMP_TIME_MIN, DRIVE_LC_RAMP_TIME_MAX }, PG_DRIVE_AIDS_CONFIG, offsetof(driveAidsConfig_t, lc_ramp_time) },
+
+// PG_DRIFT_CONFIG
+    { "drift_gain",                  VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIFT_GAIN_MAX }, PG_DRIFT_CONFIG, offsetof(driftConfig_t, gain) },
+    { "drift_allow",                 VAR_UINT16 | PROFILE_VALUE, .config.minmaxUnsigned = { 0, DRIFT_ALLOW_MAX }, PG_DRIFT_CONFIG, offsetof(driftConfig_t, allow) },
+    { "drift_limit",                 VAR_UINT8  | PROFILE_VALUE, .config.minmaxUnsigned = { DRIFT_LIMIT_MIN, DRIFT_LIMIT_MAX }, PG_DRIFT_CONFIG, offsetof(driftConfig_t, limit) },
 
 // PG_PID_PROFILE
 #ifdef USE_PROFILE_NAMES

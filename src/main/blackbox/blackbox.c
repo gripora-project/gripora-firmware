@@ -73,6 +73,7 @@
 
 #include "pg/blackbox.h"
 #include "pg/drive_aids.h"
+#include "pg/drift.h"
 #include "pg/motor.h"
 #include "pg/rx.h"
 
@@ -1704,6 +1705,9 @@ static bool blackboxWriteSysinfo(void)
         BLACKBOX_PRINT_HEADER_LINE("drive_lc", "%d,%d,%d",                  driveAidsConfigs(getCurrentPidProfileIndex())->lc_mode,
                                                                             driveAidsConfigs(getCurrentPidProfileIndex())->lc_throttle,
                                                                             driveAidsConfigs(getCurrentPidProfileIndex())->lc_ramp_time);
+        BLACKBOX_PRINT_HEADER_LINE("drift", "%d,%d,%d",                     driftConfigs(getCurrentPidProfileIndex())->gain,
+                                                                            driftConfigs(getCurrentPidProfileIndex())->allow,
+                                                                            driftConfigs(getCurrentPidProfileIndex())->limit);
         BLACKBOX_PRINT_HEADER_ARRAY("master_gain", "%d", 3,                 currentPidProfile->master_gain);
         BLACKBOX_PRINT_HEADER_ARRAY("gain_curve", "%d", 3,                  currentPidProfile->gain_curve);
         // One line per curve; add lines here if GAIN_CURVE_COUNT grows

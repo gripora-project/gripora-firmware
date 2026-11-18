@@ -397,8 +397,17 @@
 // aid's fields only when all of them are sent, refuses the whole request on any out-of-range
 // value and leaves fields it was not sent unchanged. MSP2_GRIPORA_DRIVE_AIDS_STATUS reply: U8
 // flags (bit 0 aids on, bit 1 ABS armed, bit 2 ABS releasing, bit 3 TC armed, bit 4 TC holding
-// the throttle back), S16 throttle command in and S16 command out (x1000).
+// the throttle back, bit 5 launch staged, bit 6 launching), S16 throttle command in and S16
+// command out (x1000). Launch control appends U8 lc mode, U8 lc throttle % and U16 lc ramp
+// time ms to the config.
 #define MSP2_GRIPORA_DRIVE_AIDS_CONFIG        0x5F3F
 #define MSP2_GRIPORA_SET_DRIVE_AIDS_CONFIG    0x5F40
 #define MSP2_GRIPORA_DRIVE_AIDS_STATUS        0x5F41
+
+// Drift (pg/drift.h, the DRIFT mode in flight/pid.c). MSP2_GRIPORA_DRIFT_CONFIG reply and
+// MSP2_GRIPORA_SET_DRIFT_CONFIG request, for the current PID profile: U8 gain %, U16 allowed turn
+// rate deg/s, U8 counter-steer limit % of full lock. SET refuses the request on any out-of-range
+// value.
+#define MSP2_GRIPORA_DRIFT_CONFIG             0x5F42
+#define MSP2_GRIPORA_SET_DRIFT_CONFIG         0x5F43
 #define MSP_V2_FRAME                         255

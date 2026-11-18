@@ -103,6 +103,7 @@ bool cliMode = false;
 
 #include "pg/bus_servo.h"
 #include "pg/drive_aids.h"
+#include "pg/drift.h"
 #include "pg/servo_name.h"
 #include "pg/servo_trim.h"
 #include "pg/logic_condition.h"
@@ -896,6 +897,8 @@ static uint16_t getValueOffset(const clivalue_t *value)
             return value->offset + sizeof(fwSpaConfig_t) * getPidProfileIndexToUse();
         case PG_DRIVE_AIDS_CONFIG:
             return value->offset + sizeof(driveAidsConfig_t) * getPidProfileIndexToUse();
+        case PG_DRIFT_CONFIG:
+            return value->offset + sizeof(driftConfig_t) * getPidProfileIndexToUse();
         default:
             return value->offset + sizeof(pidProfile_t) * getPidProfileIndexToUse();
         }

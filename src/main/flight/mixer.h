@@ -87,6 +87,7 @@ float mixerGetOutput(uint8_t index);
 bool mixerSaturated(uint8_t index);
 bool mixerInputUsed(uint8_t index);
 bool mixerStabilizationBypassed(void);
+bool mixerDriftActive(void);
 bool mixerTakeStabilizedSaturation(void);
 void mixerSaturateInput(uint8_t index);
 void mixerSaturateOutput(uint8_t index);

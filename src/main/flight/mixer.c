@@ -124,6 +124,12 @@ bool mixerStabilizationBypassed(void)
     return !failsafeIsActive() && IS_RC_MODE_ACTIVE(BOXPASSTHROUGH);
 }
 
+// True while DRIFT changes the steering loop (flight/pid.c). Failsafe turns it off, like GYRO OFF.
+bool mixerDriftActive(void)
+{
+    return !failsafeIsActive() && IS_RC_MODE_ACTIVE(BOXDRIFT);
+}
+
 void mixerSaturateInput(uint8_t index)
 {
     mixer.saturation[index] = MIXER_SATURATION_TIME;
