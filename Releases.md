@@ -1,3 +1,10 @@
+# 0.0.5
+
+Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites (MSP API 33.0, unchanged). Updating resets nothing.
+The setup wizards' gyro check is now easy to see: while a setup wizard is open, turning the car by hand at 90 deg/s moves the steering at least half its travel, and proportionally less below that, whatever the steering P gain and the throttle or speed attenuation are set to. Before, only the tuned P-term answered and the wheels often barely moved. Driving is unchanged.
+
+***
+
 # 0.0.4
 
 Use with the current Gripora Configurator (cfg.gripora.org) and Lua suites (MSP API 33.0). Updating resets the telemetry sensor selection to the new default; everything else is kept.
