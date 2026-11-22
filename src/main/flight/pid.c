@@ -47,6 +47,7 @@
 #include "fc/core.h"
 #include "fc/rc.h"
 #include "fc/rc_controls.h"
+#include "fc/rc_modes.h"
 #include "fc/rc_rates.h"
 #include "fc/runtime_config.h"
 
@@ -816,6 +817,15 @@ void pidGetRuntimeGains(pidRuntimeGains_t *runtimeGains)
     }
 }
 
+// A setup wizard's gyro check: the wizard holds the mode override (bench only: it is refused
+// and cleared while armed) and asks the driver to turn the car by hand and watch the steering
+// push back. P alone answers that (I is held at zero while disarmed), and with a gentle tune
+// the wheels barely move. So while the override is held, the yaw P-term gives at least
+// PID_BENCH_CHECK_THROW of steering at PID_BENCH_CHECK_RATE deg/s, and P and D ignore the
+// throttle and speed attenuation.
+#define PID_BENCH_CHECK_RATE        90.0f
+#define PID_BENCH_CHECK_THROW       0.5f
+
 static void pidApplyMode1(uint8_t axis)
 {
     // Rate setpoint
@@ -840,11 +850,19 @@ static void pidApplyMode1(uint8_t axis)
     const float curveMult = pidAxisGainCurve(axis);
     const float masterGain = pid.masterGain[axis] * curveMult;
 
+    // Setup wizard's gyro check (see PID_BENCH_CHECK_RATE)
+    const bool benchCheck = (axis == PID_YAW) && isModeOverrideActive();
+    const float pdAtten = benchCheck ? 1.0f : atten;
+
 
   //// P-term
 
     // Calculate P-component
-    pid.data[axis].P = pid.coef[axis].Kp * masterGain * atten * corr * errorRate;
+    float Kp = pid.coef[axis].Kp * masterGain;
+    if (benchCheck) {
+        Kp = fmaxf(Kp, PID_BENCH_CHECK_THROW / PID_BENCH_CHECK_RATE);
+    }
+    pid.data[axis].P = Kp * pdAtten * corr * errorRate;
 
 
   //// D-term (gyro only)
@@ -853,7 +871,7 @@ static void pidApplyMode1(uint8_t axis)
     const float dTerm = difFilterApply(&pid.dtermFilter[axis], -gyroRate);
 
     // Calculate D-component
-    pid.data[axis].D = pid.coef[axis].Kd * masterGain * atten * corr * dTerm;
+    pid.data[axis].D = pid.coef[axis].Kd * masterGain * pdAtten * corr * dTerm;
 
 
   //// I-term

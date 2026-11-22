@@ -58,6 +58,8 @@ bool stabilizationBypassed = false;
 bool mixerStabilizationBypassed(void) { return stabilizationBypassed; }
 bool driftActive = false;
 bool mixerDriftActive(void) { return driftActive; }
+bool modeOverrideActive = false;
+bool isModeOverrideActive(void) { return modeOverrideActive; }
 uint8_t getCurrentPidProfileIndex(void) { return 0; }
 void changePidProfile(uint8_t) {}
 } // extern "C"
@@ -124,6 +126,7 @@ class PIDTestBase : public ::testing::Test {
         wheelRpm = 0;
         DISABLE_ARMING_FLAG(ARMED);
         driftActive = false;
+        modeOverrideActive = false;
         g_mock = nullptr;
     }
     PIDIO getResponse(PIDIO &input)
@@ -546,6 +549,46 @@ TEST_F(PIDDriveTest, StandstillIsStickOnly)
     EXPECT_FLOAT_EQ(driveGetCorrectionScale(), 1.0f);
     EXPECT_NE(yaw().P, 0);
     EXPECT_NE(yaw().axisError, 0);
+}
+
+TEST_F(PIDDriveTest, WizardGyroCheckIsVisibleOnTheBench)
+// Disarmed with the setup wizard holding the mode override: turning the car by hand at
+// 90 deg/s gives half the steering travel however gentle the tune or low the idle TPA, even
+// with RPM telemetry showing a standstill. Without the override the tune applies as before.
+{
+    onlyGains(20, 100, 0, 0);
+    mockPidProfile->fw_tpa_gain = 25;
+    pidInit(mockPidProfile);
+    rpmActive = true;
+    wheelRpm = 0;
+
+    PIDIO input;
+    for (int axis = 0; axis < 4; axis++)
+        input[axis].push_back(0);
+    auto turn = [&](float rate) {
+        gyro.gyroADCf[PID_YAW] = rate;
+        for (int i = 0; i < 200; i++)
+            getResponse(input);
+        return pidGetOutput(PID_YAW);
+    };
+
+    const float tuned = turn(90);
+    EXPECT_LT(fabsf(tuned), 0.01f);
+    EXPECT_NE(tuned, 0);
+
+    modeOverrideActive = true;
+    EXPECT_NEAR(turn(90), -0.5f, 1e-3f);
+    EXPECT_NEAR(turn(-45), 0.25f, 1e-3f);
+    EXPECT_EQ(yaw().I, 0);
+
+    // A tune already stronger than the floor is left alone, less the attenuation
+    onlyGains(1000, 0, 0, 0);
+    mockPidProfile->fw_tpa_gain = 100;
+    pidInit(mockPidProfile);
+    const float strong = turn(90);
+    modeOverrideActive = false;
+    EXPECT_FLOAT_EQ(turn(90), strong);
+    EXPECT_LT(strong, -0.5f);
 }
 
 TEST_F(PIDDriveTest, ReverseOffIsStickOnly)

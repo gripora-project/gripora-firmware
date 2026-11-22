@@ -3,6 +3,25 @@
 This file collects the changes in the firmware that affect the APIs or how the
 car drives. Entries below "Inherited from WingFlight" predate the Gripora fork.
 
+## Gyro Check Under the Mode Override
+
+The setup wizards (Configurator and the Ethos Lua suite) ask the driver to
+turn the car by hand and watch the steering push back. Disarmed, only the yaw
+P-term answers that (I is held at zero), scaled by the tune and by the throttle
+and speed attenuation, so the wheels often barely moved: about 11 % of travel
+at 90 deg/s with the defaults.
+
+While the mode override is held (`isModeOverrideActive()`, which the wizards
+hold for as long as they are open; it is refused and cleared when armed):
+
+- The yaw P-term gives at least half the steering travel at 90 deg/s, and
+  proportionally less below that. A tune that already gives more is unchanged.
+- Yaw P and D ignore the throttle and speed attenuation (`fw_tpa_gain`,
+  `fw_tpa_curve`, SPA). F and B, which carry the stick, still follow it.
+
+DRIFT, pid mode 0 and everything outside the override are unchanged. No MSP or
+settings change; the API version is unchanged.
+
 ## MSP API 33.0
 
 Gripora's MSP protocol is its own from here: the API version is 33.0
